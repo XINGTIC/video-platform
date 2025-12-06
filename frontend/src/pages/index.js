@@ -26,7 +26,7 @@ export default function Home() {
       <div className="grid">
         {videos.map(video => (
           <div key={video._id} className="card">
-            <Link href={`/watch/${video._id}`}>
+            <Link href={`/watch?id=${video._id}`}>
               <img src={video.thumbnailUrl || 'https://via.placeholder.com/300x150'} alt={video.title} />
               <h3>{video.title}</h3>
             </Link>
