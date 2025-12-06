@@ -66,6 +66,24 @@ export default function Watch() {
     <div className="container">
       <h1>{video.title}</h1>
       <video width="100%" controls src={video.videoUrl} poster={video.thumbnailUrl} />
+      
+      {/* Display Tags */}
+      {video.tags && video.tags.length > 0 && (
+        <div style={{marginTop: '10px'}}>
+            {video.tags.map((tag, index) => (
+                <span key={index} style={{
+                    background: '#eee', 
+                    padding: '5px 10px', 
+                    borderRadius: '15px', 
+                    marginRight: '5px',
+                    fontSize: '12px'
+                }}>
+                    {tag}
+                </span>
+            ))}
+        </div>
+      )}
+
       <p>{video.description}</p>
     </div>
   );

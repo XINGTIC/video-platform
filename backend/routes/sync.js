@@ -19,18 +19,31 @@ router.post('/run', async (req, res) => {
 
     // 2. Parse logic (Generic example - User needs to adjust selectors)
     // Searching for common video patterns
+    // 提示：你需要根据你目标网站的具体 HTML 结构修改这里的抓取逻辑
+    // TIP: You need to adjust the scraping logic below based on your target site's HTML structure
+    
     $('a').each((i, el) => {
       const link = $(el).attr('href');
-      const title = $(el).attr('title') || $(el).text().trim();
+      const title = $(el).attr('title') || $(el).find('.title').text() || $(el).text().trim();
       const img = $(el).find('img').attr('src');
       
+      // Attempt to find tags (generic guess)
+      const tags = [];
+      $(el).closest('.video-card, .item').find('.tags a, .category').each((j, tagEl) => {
+        tags.push($(tagEl).text().trim());
+      });
+
       // Very basic heuristic
-      if (link && (link.includes('video') || link.includes('watch'))) {
+      if (link && (link.includes('video') || link.includes('watch') || link.includes('.mp4') || link.includes('.m3u8'))) {
+        const fullLink = link.startsWith('http') ? link : new URL(link, targetUrl).href;
+        const fullImg = img ? (img.startsWith('http') ? img : new URL(img, targetUrl).href) : null;
+
         importedVideos.push({
-          title: title || 'Untitled Scraped Video',
-          videoUrl: link.startsWith('http') ? link : new URL(link, targetUrl).href,
-          thumbnailUrl: img ? (img.startsWith('http') ? img : new URL(img, targetUrl).href) : null,
-          sourceUrl: targetUrl
+          title: title || '未命名视频',
+          videoUrl: fullLink,
+          thumbnailUrl: fullImg,
+          sourceUrl: targetUrl,
+          tags: tags // Add scraped tags
         });
       }
     });
