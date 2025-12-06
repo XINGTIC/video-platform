@@ -13,7 +13,7 @@ router.post('/register', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = new User({ username, password: hashedPassword });
     await user.save();
-    res.status(201).json({ message: 'User created' });
+    res.status(201).json({ message: '用户已创建' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -24,10 +24,10 @@ router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
     const user = await User.findOne({ username });
-    if (!user) return res.status(400).json({ message: 'User not found' });
+    if (!user) return res.status(400).json({ message: '用户不存在' });
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
+    if (!isMatch) return res.status(400).json({ message: '用户名或密码错误' });
 
     const token = jwt.sign({ id: user._id, isMember: user.isMember }, JWT_SECRET, { expiresIn: '1d' });
     res.json({ token, user: { id: user._id, username: user.username, isMember: user.isMember } });

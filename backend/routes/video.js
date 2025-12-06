@@ -32,7 +32,7 @@ router.get('/', async (req, res) => {
 router.get('/:id', getUser, async (req, res) => {
   try {
     const video = await Video.findById(req.params.id);
-    if (!video) return res.status(404).json({ message: 'Video not found' });
+    if (!video) return res.status(404).json({ message: '视频未找到' });
 
     // If user is not logged in, assume they are a guest (non-member)
     // Implementation choice: Should guests watch 1 video? Or must register?
@@ -40,7 +40,7 @@ router.get('/:id', getUser, async (req, res) => {
     // So we assume user MUST be logged in to watch even the free one.
     
     if (!req.user) {
-      return res.status(401).json({ message: 'Please login to watch' });
+      return res.status(401).json({ message: '请登录观看' });
     }
 
     const user = await User.findById(req.user.id);
@@ -54,7 +54,7 @@ router.get('/:id', getUser, async (req, res) => {
       }
 
       if (user.dailyWatch.count >= 1) {
-        return res.status(403).json({ message: 'Daily limit reached. Upgrade to Member for unlimited access.' });
+        return res.status(403).json({ message: '今日观看限额已用完，请升级会员。' });
       }
 
       // Increment count
@@ -70,7 +70,7 @@ router.get('/:id', getUser, async (req, res) => {
 
 // Create Video (Metadata)
 router.post('/', getUser, async (req, res) => {
-  if (!req.user) return res.status(401).json({ message: 'Unauthorized' });
+  if (!req.user) return res.status(401).json({ message: '未授权' });
   try {
     const video = new Video({
       ...req.body,

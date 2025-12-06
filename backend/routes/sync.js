@@ -8,7 +8,7 @@ const Video = require('../models/Video');
 router.post('/run', async (req, res) => {
   const { targetUrl } = req.body;
   
-  if (!targetUrl) return res.status(400).json({ message: 'Target URL required' });
+  if (!targetUrl) return res.status(400).json({ message: '需要目标网址' });
 
   try {
     // 1. Fetch the page
@@ -45,11 +45,11 @@ router.post('/run', async (req, res) => {
       }
     }
 
-    res.json({ message: `Sync complete. Found ${importedVideos.length}, Saved ${savedCount}` });
+    res.json({ message: `同步完成。发现 ${importedVideos.length} 个，已保存 ${savedCount} 个` });
 
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Sync failed: ' + error.message });
+    res.status(500).json({ error: '同步失败：' + error.message });
   }
 });
 

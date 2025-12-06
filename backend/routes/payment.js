@@ -19,11 +19,11 @@ const getUser = (req, res, next) => {
 // Mock Payment Verification
 // In production, verify TX hash on-chain or use a payment gateway webhook
 router.post('/verify', getUser, async (req, res) => {
-  if (!req.user) return res.status(401).json({ message: 'Unauthorized' });
+  if (!req.user) return res.status(401).json({ message: '未授权' });
   
   const { txHash } = req.body;
   
-  if (!txHash) return res.status(400).json({ message: 'Transaction hash required' });
+  if (!txHash) return res.status(400).json({ message: '需要交易哈希' });
 
   // MOCK LOGIC: If hash starts with "0x", approve it.
   if (txHash.startsWith('0x')) {
@@ -36,12 +36,12 @@ router.post('/verify', getUser, async (req, res) => {
       user.memberExpireDate = date;
       await user.save();
       
-      return res.json({ success: true, message: 'Membership activated' });
+      return res.json({ success: true, message: '会员已激活' });
     } catch (error) {
       return res.status(500).json({ error: error.message });
     }
   } else {
-    return res.status(400).json({ success: false, message: 'Invalid transaction' });
+    return res.status(400).json({ success: false, message: '无效的交易' });
   }
 });
 

@@ -25,7 +25,7 @@ export default function Login() {
         setIsRegister(false);
       }
     } catch (error) {
-      alert(error.response?.data?.message || '发生错误');
+      alert(error.response?.data?.message || '错误');
     }
   };
 
