@@ -9,7 +9,7 @@ const paymentRoutes = require('./routes/payment');
 const { router: syncRoutes, syncMg621, syncH823 } = require('./routes/sync');
 const cron = require('node-cron');
 const axios = require('axios');
-const Video = require('./models/Video'); // Added Video model
+const Video = require('./models/Video');
 
 const app = express();
 
