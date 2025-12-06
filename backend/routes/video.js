@@ -1,0 +1,86 @@
+const express = require('express');
+const router = express.Router();
+const Video = require('../models/Video');
+const User = require('../models/User');
+const jwt = require('jsonwebtoken');
+
+const JWT_SECRET = process.env.JWT_SECRET || 'secret_key';
+
+// Middleware to extract user (optional)
+const getUser = (req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      req.user = decoded;
+    } catch (e) {}
+  }
+  next();
+};
+
+// List Videos
+router.get('/', async (req, res) => {
+  try {
+    const videos = await Video.find().sort({ createdAt: -1 }).limit(50);
+    res.json(videos);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get Video (with Limit Logic)
+router.get('/:id', getUser, async (req, res) => {
+  try {
+    const video = await Video.findById(req.params.id);
+    if (!video) return res.status(404).json({ message: 'Video not found' });
+
+    // If user is not logged in, assume they are a guest (non-member)
+    // Implementation choice: Should guests watch 1 video? Or must register?
+    // Prompt says "User registered ... non-member 1 video".
+    // So we assume user MUST be logged in to watch even the free one.
+    
+    if (!req.user) {
+      return res.status(401).json({ message: 'Please login to watch' });
+    }
+
+    const user = await User.findById(req.user.id);
+    
+    if (!user.isMember) {
+      const today = new Date().toISOString().split('T')[0];
+      
+      if (user.dailyWatch.date !== today) {
+        // Reset for new day
+        user.dailyWatch = { date: today, count: 0 };
+      }
+
+      if (user.dailyWatch.count >= 1) {
+        return res.status(403).json({ message: 'Daily limit reached. Upgrade to Member for unlimited access.' });
+      }
+
+      // Increment count
+      user.dailyWatch.count += 1;
+      await user.save();
+    }
+
+    res.json(video);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Create Video (Metadata)
+router.post('/', getUser, async (req, res) => {
+  if (!req.user) return res.status(401).json({ message: 'Unauthorized' });
+  try {
+    const video = new Video({
+      ...req.body,
+      uploader: req.user.id
+    });
+    await video.save();
+    res.json(video);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+module.exports = router;
