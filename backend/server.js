@@ -18,6 +18,10 @@ app.use(cors());
 app.use(express.json());
 
 // Database Connection
+mongoose.connection.on('connected', () => console.log('Mongoose connected'));
+mongoose.connection.on('error', (err) => console.error('Mongoose connection error:', err));
+mongoose.connection.on('disconnected', () => console.log('Mongoose disconnected'));
+
 mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/videoplatform', {
   useNewUrlParser: true,
   useUnifiedTopology: true,
@@ -47,6 +51,18 @@ mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/videoplatfo
   }
 })
 .catch(err => console.error('MongoDB Connection Error:', err));
+
+// Health Check Route
+app.get('/api/health', (req, res) => {
+    res.json({
+        status: 'ok',
+        mongoState: mongoose.connection.readyState, // 0: disconnected, 1: connected, 2: connecting, 3: disconnecting
+        timestamp: new Date(),
+        envCheck: {
+            hasMongoURI: !!process.env.MONGO_URI
+        }
+    });
+});
 
 // Scheduled Sync (Runs every 12 hours)
 // "0 */12 * * *"
