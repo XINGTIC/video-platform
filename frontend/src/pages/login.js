@@ -21,33 +21,33 @@ export default function Login() {
         localStorage.setItem('user', JSON.stringify(res.data.user));
         router.push('/');
       } else {
-        alert('Registered! Please login.');
+        alert('注册成功！请登录。');
         setIsRegister(false);
       }
     } catch (error) {
-      alert(error.response?.data?.message || 'Error');
+      alert(error.response?.data?.message || '发生错误');
     }
   };
 
   return (
     <div className="container">
-      <h2>{isRegister ? 'Register' : 'Login'}</h2>
+      <h2>{isRegister ? '注册' : '登录'}</h2>
       <form onSubmit={handleSubmit} style={{maxWidth: '400px'}}>
         <input 
-          placeholder="Username" 
+          placeholder="用户名" 
           value={username} 
           onChange={e => setUsername(e.target.value)} 
         />
         <input 
           type="password" 
-          placeholder="Password" 
+          placeholder="密码" 
           value={password} 
           onChange={e => setPassword(e.target.value)} 
         />
-        <button className="btn" type="submit">{isRegister ? 'Register' : 'Login'}</button>
+        <button className="btn" type="submit">{isRegister ? '注册' : '登录'}</button>
       </form>
       <p onClick={() => setIsRegister(!isRegister)} style={{cursor: 'pointer', marginTop: '10px'}}>
-        {isRegister ? 'Have account? Login' : 'No account? Register'}
+        {isRegister ? '已有账号？去登录' : '没有账号？去注册'}
       </p>
     </div>
   );

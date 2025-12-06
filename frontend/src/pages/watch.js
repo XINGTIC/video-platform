@@ -21,17 +21,17 @@ export default function Watch() {
     .then(res => setVideo(res.data))
     .catch(err => {
       if (err.response?.status === 403) {
-        setError('Daily limit reached. Please upgrade.');
+        setError('今日观看限额已用完，请升级会员。');
       } else if (err.response?.status === 401) {
         router.push('/login');
       } else {
-        setError('Error loading video');
+        setError('加载视频失败');
       }
     });
   }, [id]);
 
   const handlePayment = async () => {
-    const tx = prompt('Enter your USDT transaction hash (0x...):');
+    const tx = prompt('请输入您的 USDT 交易哈希 (0x...):');
     if (tx) {
       const token = localStorage.getItem('token');
       try {
@@ -39,11 +39,11 @@ export default function Watch() {
             headers: { Authorization: `Bearer ${token}` }
         });
         if (res.data.success) {
-            alert('Success! Reloading...');
+            alert('支付成功！正在刷新...');
             window.location.reload();
         }
       } catch (e) {
-        alert('Payment failed');
+        alert('支付验证失败');
       }
     }
   };
@@ -51,16 +51,16 @@ export default function Watch() {
   if (error) return (
     <div className="container">
       <h2>{error}</h2>
-      {error.includes('limit') && (
+      {error.includes('限额') && (
         <div>
-            <p>Pay 10 USDT to address: 0x123...ABC</p>
-            <button className="btn" onClick={handlePayment}>I have paid</button>
+            <p>请支付 10 USDT 到地址: 0x123...ABC</p>
+            <button className="btn" onClick={handlePayment}>我已支付</button>
         </div>
       )}
     </div>
   );
 
-  if (!video) return <div className="container">Loading...</div>;
+  if (!video) return <div className="container">加载中...</div>;
 
   return (
     <div className="container">

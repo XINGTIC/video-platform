@@ -16,10 +16,10 @@ export default function Home() {
   return (
     <div className="container">
       <header style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-        <h1>Video Platform</h1>
+        <h1>视频平台</h1>
         <div>
-          <Link href="/login" style={{marginRight: '10px'}}>Login</Link>
-          <Link href="/upload">Upload</Link>
+          <Link href="/login" style={{marginRight: '10px'}}>登录</Link>
+          <Link href="/upload">上传</Link>
         </div>
       </header>
 
