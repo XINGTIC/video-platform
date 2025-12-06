@@ -6,7 +6,10 @@ const cors = require('cors');
 const authRoutes = require('./routes/auth');
 const videoRoutes = require('./routes/video');
 const paymentRoutes = require('./routes/payment');
-const syncRoutes = require('./routes/sync');
+const { router: syncRoutes, syncMg621, syncH823 } = require('./routes/sync');
+const cron = require('node-cron');
+const axios = require('axios');
+const Video = require('./models/Video'); // Added Video model
 
 const app = express();
 
@@ -19,8 +22,44 @@ mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/videoplatfo
   useNewUrlParser: true,
   useUnifiedTopology: true,
 })
-.then(() => console.log('MongoDB Connected'))
+.then(async () => {
+  console.log('MongoDB Connected');
+  
+  // Check if DB is empty and trigger initial sync
+  try {
+    const count = await Video.countDocuments();
+    console.log(`[Startup] Current video count: ${count}`);
+    if (count === 0) {
+      console.log('[Startup] Database is empty. Triggering initial sync...');
+      // Run in background so we don't block server startup
+      (async () => {
+         try {
+           const c1 = await syncMg621(10);
+           const c2 = await syncH823(10);
+           console.log(`[Startup] Initial sync completed. Saved: ${c1 + c2}`);
+         } catch (e) {
+           console.error('[Startup] Initial sync failed:', e.message);
+         }
+      })();
+    }
+  } catch (e) {
+    console.error('[Startup] Failed to check video count:', e.message);
+  }
+})
 .catch(err => console.error('MongoDB Connection Error:', err));
+
+// Scheduled Sync (Runs every 12 hours)
+// "0 */12 * * *"
+cron.schedule('0 */12 * * *', async () => {
+  console.log('[Cron] Starting scheduled sync...');
+  try {
+    // Assuming server runs on localhost:5000
+    // We call the internal route logic or just trigger via axios
+    await axios.post('http://localhost:5000/api/sync/run', {});
+  } catch (error) {
+    console.error('[Cron] Sync failed:', error.message);
+  }
+});
 
 // Routes
 app.use('/api/auth', authRoutes);
