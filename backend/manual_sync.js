@@ -1,9 +1,19 @@
-const express = require('express');
-const router = express.Router();
 const axios = require('axios');
 const cheerio = require('cheerio');
-const Video = require('../models/Video');
+const mongoose = require('mongoose');
+// Mock Video Model for testing without DB
+class Video {
+    constructor(data) {
+        Object.assign(this, data);
+    }
+    static async findOne() { return null; }
+    async save() { 
+        console.log(`[MockDB] Saved: ${this.title}`); 
+        return this; 
+    }
+}
 const CryptoJS = require('crypto-js');
+require('dotenv').config();
 
 // --- MG621 Helpers ---
 function generateDeviceId() {
@@ -81,7 +91,6 @@ async function syncMg621(limit = 10) {
     
     try {
         const deviceId = generateDeviceId();
-        let savedCount = 0;
         console.log(`[Sync-MG621] Device ID: ${deviceId}`);
 
         // 1. Get Key
@@ -137,6 +146,7 @@ async function syncMg621(limit = 10) {
             if (listRes.data.encData) {
                 const d = decryptResponse(listRes.data.encData, decryptionToken);
                 if (d && d.data) {
+                    // Check if data is array or object with list
                     if (Array.isArray(d.data)) {
                         videos = d.data;
                     } else if (d.data.list) {
@@ -148,14 +158,24 @@ async function syncMg621(limit = 10) {
             console.warn('[Sync-MG621] No classifications found. Cannot fetch videos.');
         }
 
-        console.log(`[Sync-MG621] Found ${videos.length} videos.`);
+        console.log(`[Sync-MG621] Found ${videos.length} actual videos.`);
+        if (videos.length > 0) {
+             console.log('[Sync-MG621] First video keys:', Object.keys(videos[0]));
+        }
 
+        let savedCount = 0;
         for (const v of videos) {
             if (savedCount >= limit) break;
             
             if (!v.videoUrl) {
-                 v.videoUrl = v.playUrl || v.m3u8Url || v.url; 
-                 if (!v.videoUrl) continue;
+                // Try to find alternative URL fields or construct it
+                v.videoUrl = v.playUrl || v.m3u8Url || v.url; 
+                if (!v.videoUrl) {
+                     // Sometimes videoUrl is only available in detail API
+                     // But let's check if we can skip this for now or if we need another call
+                     console.warn(`[Sync-MG621] Skipping ${v.title} - No URL found in list object`);
+                     continue;
+                }
             }
 
             const exists = await Video.findOne({ 
@@ -189,6 +209,7 @@ async function syncMg621(limit = 10) {
         return savedCount;
     } catch (e) {
         console.error('[Sync-MG621] Error:', e.message);
+        if (e.response) console.log(e.response.data);
         return 0;
     }
 }
@@ -226,8 +247,7 @@ async function syncH823(limit = 10) {
                      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' }
                 });
                 const $v = cheerio.load(vRes.data);
-                let title = $v('title').text().trim();
-                title = title.replace('Chinese homemade video', '').trim();
+                const title = $v('title').text().trim();
                 
                 // Check duplicate
                 const exists = await Video.findOne({ title: title });
@@ -276,23 +296,27 @@ async function syncH823(limit = 10) {
     }
 }
 
-// Route
-router.post('/run', async (req, res) => {
-    const limit = req.body.limit || 10;
-    
+async function run() {
     try {
+        // Mock DB connection for testing
+        console.log('Mocking MongoDB Connection...');
+        // await mongoose.connect(...) 
+
+        const limit = 10;
         const count1 = await syncMg621(limit);
         const count2 = await syncH823(limit);
         
-        res.json({
-            message: 'Sync completed',
-            mg621_saved: count1,
-            h823_saved: count2,
-            total_saved: count1 + count2
-        });
+        console.log('------------------------------------------------');
+        console.log(`Sync Complete.`);
+        console.log(`MG621 Saved: ${count1}`);
+        console.log(`H823 Saved: ${count2}`);
+        console.log('------------------------------------------------');
+        
+        process.exit(0);
     } catch (e) {
-        res.status(500).json({ error: e.message });
+        console.error(e);
+        process.exit(1);
     }
-});
+}
 
-module.exports = { router, syncMg621, syncH823 };
+run();

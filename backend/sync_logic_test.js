@@ -1,9 +1,24 @@
-const express = require('express');
-const router = express.Router();
 const axios = require('axios');
 const cheerio = require('cheerio');
-const Video = require('../models/Video');
 const CryptoJS = require('crypto-js');
+
+// Mock Video Model
+class Video {
+    constructor(data) {
+        this.data = data;
+    }
+    static async findOne(query) {
+        console.log('[MockDB] Finding video:', query);
+        return null; // Always return null to simulate new video
+    }
+    async save() {
+        console.log('[MockDB] Saving video:', this.data.title);
+        return this.data;
+    }
+    static async countDocuments() {
+        return 0;
+    }
+}
 
 // --- MG621 Helpers ---
 function generateDeviceId() {
@@ -226,8 +241,7 @@ async function syncH823(limit = 10) {
                      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' }
                 });
                 const $v = cheerio.load(vRes.data);
-                let title = $v('title').text().trim();
-                title = title.replace('Chinese homemade video', '').trim();
+                const title = $v('title').text().trim();
                 
                 // Check duplicate
                 const exists = await Video.findOne({ title: title });
@@ -276,23 +290,11 @@ async function syncH823(limit = 10) {
     }
 }
 
-// Route
-router.post('/run', async (req, res) => {
-    const limit = req.body.limit || 10;
-    
-    try {
-        const count1 = await syncMg621(limit);
-        const count2 = await syncH823(limit);
-        
-        res.json({
-            message: 'Sync completed',
-            mg621_saved: count1,
-            h823_saved: count2,
-            total_saved: count1 + count2
-        });
-    } catch (e) {
-        res.status(500).json({ error: e.message });
-    }
-});
+// Run Test
+async function run() {
+    const c1 = await syncMg621(5);
+    const c2 = await syncH823(5);
+    console.log(`Total Saved: ${c1 + c2}`);
+}
 
-module.exports = { router, syncMg621, syncH823 };
+run();
