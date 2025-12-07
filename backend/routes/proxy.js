@@ -36,7 +36,10 @@ router.get('/', async (req, res) => {
             'Accept': '*/*',
             'Accept-Encoding': 'identity',
             'Connection': 'keep-alive',
-            'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8'
+            'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+            'Sec-Fetch-Dest': 'empty',
+            'Sec-Fetch-Mode': 'cors',
+            'Sec-Fetch-Site': 'same-origin',
         };
         
         if (referer) headers['Referer'] = referer;
@@ -53,7 +56,7 @@ router.get('/', async (req, res) => {
             method: 'GET',
             responseType: 'stream', // Always stream initially
             headers: headers,
-            timeout: 15000, // Set a reasonable timeout
+            timeout: 30000, // Increased timeout
             maxRedirects: 5,
             httpsAgent: new https.Agent({ rejectUnauthorized: false })
         });
@@ -80,7 +83,10 @@ router.get('/', async (req, res) => {
 
             // Handle Redirects for Base URL
             // response.request.res.responseUrl works in Node environment with Axios
-            const finalUrl = response.request.res.responseUrl || targetUrl;
+            let finalUrl = targetUrl;
+            if (response.request && response.request.res && response.request.res.responseUrl) {
+                finalUrl = response.request.res.responseUrl;
+            }
             const baseUrl = finalUrl.substring(0, finalUrl.lastIndexOf('/') + 1);
             
             // Construct Proxy Base URL
