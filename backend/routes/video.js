@@ -36,7 +36,7 @@ router.get('/:id', getUser, async (req, res) => {
     if (!video) return res.status(404).json({ message: '视频未找到' });
 
     // Refresh H823 Link
-    if (video.tags && video.tags.includes('H823') && video.sourceUrl) {
+    if ((video.provider === 'H823' || (video.tags && video.tags.includes('H823'))) && video.sourceUrl) {
         try {
             const newUrl = await getH823VideoUrl(video.sourceUrl);
             if (newUrl && newUrl !== video.videoUrl) {

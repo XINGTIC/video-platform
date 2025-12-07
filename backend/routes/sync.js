@@ -162,8 +162,41 @@ async function syncMg621(limit = 10) {
                 $or: [{ title: v.title }, { videoUrl: { $regex: v.videoUrl.split('/').pop() } }] 
             });
 
-            if (!exists) {
-                const fullVideoUrl = v.videoUrl.startsWith('http') ? v.videoUrl : imgDomain + v.videoUrl;
+            if (exists) {
+                // Check if domain needs update
+                if (exists.provider === 'MG621' && imgDomain) {
+                    let updated = false;
+                    
+                    // Update Thumbnail Domain
+                    if (exists.thumbnailUrl && exists.thumbnailUrl.includes('/jhimage/')) {
+                         const parts = exists.thumbnailUrl.split('/jhimage/');
+                         const currentDomain = parts[0] + '/';
+                         if (currentDomain !== imgDomain) {
+                             exists.thumbnailUrl = imgDomain + 'jhimage/' + parts[1];
+                             updated = true;
+                         }
+                    }
+                    
+                    // Update Video URL Domain
+                    if (exists.videoUrl && exists.videoUrl.includes('/jpe/')) {
+                         const parts = exists.videoUrl.split('/jpe/');
+                         const currentDomain = parts[0] + '/';
+                         if (currentDomain !== imgDomain) {
+                             exists.videoUrl = imgDomain + 'jpe/' + parts[1];
+                             updated = true;
+                         }
+                    }
+
+                    if (updated) {
+                        await exists.save();
+                        console.log(`[Sync-MG621] Updated domain for: ${exists.title}`);
+                    }
+                }
+                continue;
+            }
+
+            // New Video
+            const fullVideoUrl = v.videoUrl.startsWith('http') ? v.videoUrl : imgDomain + v.videoUrl;
                 let fullCoverUrl = null;
                 if (v.coverImg) {
                      const imgPath = Array.isArray(v.coverImg) ? v.coverImg[0] : v.coverImg;
