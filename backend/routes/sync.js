@@ -179,6 +179,8 @@ async function syncMg621(limit = 10) {
                     thumbnailUrl: fullCoverUrl,
                     duration: v.playTime,
                     sourceUrl: 'https://mg621.x5t5d5a4c.work',
+                    provider: 'MG621',
+                    externalId: v.videoId || v.id,
                     tags: tagList,
                     views: v.fakeWatchNum || 0
                 }).save();
@@ -294,6 +296,8 @@ async function syncH823(limit = 10) {
                         videoUrl: videoUrl,
                         thumbnailUrl: poster,
                         sourceUrl: link,
+                        provider: 'H823',
+                        externalId: link.match(/viewkey=([^&]+)/)?.[1] || link,
                         tags: ['Imported', 'H823'], 
                         views: 0
                     }).save();
