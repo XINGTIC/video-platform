@@ -5,21 +5,31 @@ const axios = require('axios');
 router.get('/', async (req, res) => {
     const targetUrl = req.query.url;
     const range = req.headers.range;
+    const customReferer = req.query.referer;
 
     if (!targetUrl) {
         return res.status(400).send('Missing url parameter');
     }
 
     try {
-        // Determine Referer and Origin based on target domain
-            let referer = '';
+        // Determine Referer and Origin based on target domain or query param
+            let referer = customReferer || '';
             let origin = '';
-            if (targetUrl.includes('sol148.com') || targetUrl.includes('h823')) {
-                referer = 'https://h823.sol148.com/';
-                origin = 'https://h823.sol148.com';
-            } else if (targetUrl.includes('xszc666.com') || targetUrl.includes('mg621')) {
-                referer = 'https://mg621.x5t5d5a4c.work/';
-                origin = 'https://mg621.x5t5d5a4c.work';
+            
+            if (!referer) {
+                if (targetUrl.includes('sol148.com') || targetUrl.includes('h823') || targetUrl.includes('btc620.com')) {
+                    referer = 'https://h823.sol148.com/';
+                    origin = 'https://h823.sol148.com';
+                } else if (targetUrl.includes('xszc666.com') || targetUrl.includes('mg621')) {
+                    referer = 'https://mg621.x5t5d5a4c.work/';
+                    origin = 'https://mg621.x5t5d5a4c.work';
+                }
+            } else {
+                 // If referer is provided, try to derive origin from it
+                 try {
+                     const refUrl = new URL(referer);
+                     origin = refUrl.origin;
+                 } catch (e) {}
             }
 
             const headers = {

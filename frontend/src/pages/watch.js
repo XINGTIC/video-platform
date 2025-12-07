@@ -85,7 +85,7 @@ export default function Watch() {
 
   const getVideoSrc = (v) => {
     if (v.provider === 'H823' || (v.tags && v.tags.includes('H823'))) {
-        return `${API_URL}/proxy?url=${encodeURIComponent(v.videoUrl)}`;
+        return `${API_URL}/proxy?url=${encodeURIComponent(v.videoUrl)}&referer=${encodeURIComponent('https://h823.sol148.com/')}`;
     }
     return v.videoUrl;
   };
@@ -93,7 +93,7 @@ export default function Watch() {
   const getThumbnailSrc = (url) => {
     if (!url) return '';
     if (url.startsWith('http')) {
-        return `${API_URL}/proxy?url=${encodeURIComponent(url)}`;
+        return `${API_URL}/proxy?url=${encodeURIComponent(url)}&referer=${encodeURIComponent('https://h823.sol148.com/')}`;
     }
     return url;
   };
