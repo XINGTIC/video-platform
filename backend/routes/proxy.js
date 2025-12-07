@@ -90,7 +90,12 @@ router.get('/', async (req, res) => {
             res.setHeader('Cache-Control', 'public, max-age=86400');
             res.setHeader('Accept-Ranges', 'bytes');
             // Allow CORS for frontend (Handled by cors middleware, but ensuring headers here just in case, avoiding duplicates if possible)
-            // res.setHeader('Access-Control-Allow-Origin', '*'); 
+            res.setHeader('Access-Control-Allow-Origin', '*'); 
+            
+            // Spoof IP to avoid Data Center blocking
+            const randomIP = `114.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`;
+            headers['X-Forwarded-For'] = randomIP;
+            headers['Client-IP'] = randomIP; 
             
             response.data.pipe(res);
 
