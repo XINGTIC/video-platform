@@ -50,12 +50,32 @@ export default function Watch() {
   };
 
   if (error) return (
-    <div className="container">
+    <div className="container" style={{textAlign: 'center', marginTop: '50px'}}>
       <h2>{error}</h2>
       {error.includes('限额') && (
-        <div>
-            <p>请支付 10 USDT 到地址: 0x123...ABC</p>
-            <button className="btn" onClick={handlePayment}>我已支付</button>
+        <div style={{marginTop: '20px'}}>
+            <p>开通会员可享受无限观看权益</p>
+            <button 
+                className="btn" 
+                style={{
+                    background: '#ffd700', 
+                    color: '#000', 
+                    border: 'none', 
+                    padding: '10px 20px', 
+                    borderRadius: '5px', 
+                    cursor: 'pointer',
+                    fontSize: '16px',
+                    fontWeight: 'bold'
+                }}
+                onClick={() => router.push('/membership')}
+            >
+                立即升级会员
+            </button>
+            <div style={{marginTop: '20px'}}>
+                <button onClick={() => router.push('/')} style={{background: 'none', border: 'none', color: '#0070f3', cursor: 'pointer'}}>
+                    返回首页
+                </button>
+            </div>
         </div>
       )}
     </div>

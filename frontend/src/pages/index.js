@@ -70,6 +70,7 @@ export default function Home() {
       <header className="main-header">
         <div className="logo">视频平台</div>
         <div className="nav-links">
+          <Link href="/membership" className="nav-btn" style={{background: '#ffd700', color: '#000'}}>会员升级</Link>
           <Link href="/upload" className="nav-btn">上传</Link>
           <Link href="/login" className="nav-btn primary">登录</Link>
         </div>

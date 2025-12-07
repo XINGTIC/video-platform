@@ -16,6 +16,12 @@ const getUser = (req, res, next) => {
   next();
 };
 
+const USDT_ADDRESS = 'TFdSk3jPR3XysH3AhYMXyHioSE6nH8pj3L';
+
+router.get('/config', (req, res) => {
+    res.json({ address: USDT_ADDRESS, network: 'TRON (TRC20)' });
+});
+
 // Mock Payment Verification
 // In production, verify TX hash on-chain or use a payment gateway webhook
 router.post('/verify', getUser, async (req, res) => {
@@ -25,8 +31,9 @@ router.post('/verify', getUser, async (req, res) => {
   
   if (!txHash) return res.status(400).json({ message: '需要交易哈希' });
 
-  // MOCK LOGIC: If hash starts with "0x", approve it.
-  if (txHash.startsWith('0x')) {
+  // Accept TRON TXID (usually 64 hex chars)
+  // Simple length check for now to allow user testing
+  if (txHash.length >= 64 || txHash.startsWith('0x')) {
     try {
       const user = await User.findById(req.user.id);
       user.isMember = true;
