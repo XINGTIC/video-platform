@@ -102,7 +102,7 @@ async function syncMg621(limit = 10) {
         let imgDomain = travelerRes.data.data.imgDomain;
         if (imgDomain && !imgDomain.endsWith('/')) imgDomain += '/';
 
-        // 3. Fetch Classify List to get a valid ID
+        // 3. Fetch Classify List
         console.log('[Sync-MG621] Step 3: Fetch Classify List');
         const classifyUrl = '/video/classify/classifyList';
         const classifyHeaders = getMgHeaders(classifyUrl, deviceId);
@@ -120,7 +120,6 @@ async function syncMg621(limit = 10) {
         
         let videos = [];
         if (classifyList.length > 0) {
-            // Use the first classification ID
             const firstClass = classifyList[0];
             const classId = firstClass.id || firstClass.classifyId;
             console.log(`[Sync-MG621] Using Classify ID: ${classId} (${firstClass.name || 'Unknown'})`);
@@ -163,11 +162,11 @@ async function syncMg621(limit = 10) {
             });
 
             if (exists) {
-                // Check if domain needs update
+                // Update domain logic
                 if (exists.provider === 'MG621' && imgDomain) {
                     let updated = false;
                     
-                    // Update Thumbnail Domain
+                    // Update Thumbnail
                     if (exists.thumbnailUrl && exists.thumbnailUrl.includes('/jhimage/')) {
                          const parts = exists.thumbnailUrl.split('/jhimage/');
                          const currentDomain = parts[0] + '/';
@@ -177,7 +176,7 @@ async function syncMg621(limit = 10) {
                          }
                     }
                     
-                    // Update Video URL Domain
+                    // Update Video
                     if (exists.videoUrl && exists.videoUrl.includes('/jpe/')) {
                          const parts = exists.videoUrl.split('/jpe/');
                          const currentDomain = parts[0] + '/';
@@ -195,31 +194,30 @@ async function syncMg621(limit = 10) {
                 continue;
             }
 
-            // New Video
+            // Create New
             const fullVideoUrl = v.videoUrl.startsWith('http') ? v.videoUrl : imgDomain + v.videoUrl;
-                let fullCoverUrl = null;
-                if (v.coverImg) {
-                     const imgPath = Array.isArray(v.coverImg) ? v.coverImg[0] : v.coverImg;
-                     fullCoverUrl = imgPath.startsWith('http') ? imgPath : imgDomain + imgPath;
-                }
-
-                let tagList = v.tagTitles || [];
-                
-                await new Video({
-                    title: v.title,
-                    description: v.subtitle || v.title,
-                    videoUrl: fullVideoUrl,
-                    thumbnailUrl: fullCoverUrl,
-                    duration: v.playTime,
-                    sourceUrl: 'https://mg621.x5t5d5a4c.work',
-                    provider: 'MG621',
-                    externalId: v.videoId || v.id,
-                    tags: tagList,
-                    views: v.fakeWatchNum || 0
-                }).save();
-                console.log(`[Sync-MG621] Saved: ${v.title}`);
-                savedCount++;
+            let fullCoverUrl = null;
+            if (v.coverImg) {
+                 const imgPath = Array.isArray(v.coverImg) ? v.coverImg[0] : v.coverImg;
+                 fullCoverUrl = imgPath.startsWith('http') ? imgPath : imgDomain + imgPath;
             }
+
+            let tagList = v.tagTitles || [];
+            
+            await new Video({
+                title: v.title,
+                description: v.subtitle || v.title,
+                videoUrl: fullVideoUrl,
+                thumbnailUrl: fullCoverUrl,
+                duration: v.playTime,
+                sourceUrl: 'https://mg621.x5t5d5a4c.work',
+                provider: 'MG621',
+                externalId: v.videoId || v.id,
+                tags: tagList,
+                views: v.fakeWatchNum || 0
+            }).save();
+            console.log(`[Sync-MG621] Saved: ${v.title}`);
+            savedCount++;
         }
         return savedCount;
     } catch (e) {

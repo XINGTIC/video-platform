@@ -63,6 +63,13 @@ export default function Watch() {
 
   if (!video) return <div className="container">加载中...</div>;
 
+  const getVideoSrc = (v) => {
+    if (v.provider === 'H823' || (v.tags && v.tags.includes('H823'))) {
+        return `${API_URL}/proxy?url=${encodeURIComponent(v.videoUrl)}`;
+    }
+    return v.videoUrl;
+  };
+
   return (
     <div className="container">
       <Head>
@@ -70,7 +77,7 @@ export default function Watch() {
         <title>{video.title} - 视频平台</title>
       </Head>
       <h1>{video.title}</h1>
-      <video width="100%" controls src={video.videoUrl} poster={video.thumbnailUrl} />
+      <video width="100%" controls src={getVideoSrc(video)} poster={video.thumbnailUrl} />
       
       {/* Display Tags */}
       {video.tags && video.tags.length > 0 && (

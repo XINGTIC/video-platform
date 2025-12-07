@@ -6,6 +6,7 @@ const cors = require('cors');
 const authRoutes = require('./routes/auth');
 const videoRoutes = require('./routes/video');
 const paymentRoutes = require('./routes/payment');
+const proxyRoutes = require('./routes/proxy');
 const { router: syncRoutes, syncMg621, syncH823 } = require('./routes/sync');
 const cron = require('node-cron');
 const axios = require('axios');
@@ -81,6 +82,7 @@ cron.schedule('0 */12 * * *', async () => {
 app.use('/api/auth', authRoutes);
 app.use('/api/videos', videoRoutes);
 app.use('/api/payment', paymentRoutes);
+app.use('/api/proxy', proxyRoutes);
 app.use('/api/sync', syncRoutes);
 
 const PORT = process.env.PORT || 5000;
