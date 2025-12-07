@@ -3,23 +3,31 @@ const router = express.Router();
 const axios = require('axios');
 
 router.get('/', async (req, res) => {
-    const videoUrl = req.query.url;
+    const targetUrl = req.query.url;
     const range = req.headers.range;
 
-    if (!videoUrl) {
+    if (!targetUrl) {
         return res.status(400).send('Missing url parameter');
     }
 
     try {
+        // Determine Referer based on target domain
+        let referer = '';
+        if (targetUrl.includes('sol148.com') || targetUrl.includes('h823')) {
+            referer = 'https://h823.sol148.com/';
+        } else if (targetUrl.includes('xszc666.com') || targetUrl.includes('mg621')) {
+            referer = 'https://mg621.x5t5d5a4c.work/';
+        }
+
         const headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            'Referer': 'https://h823.sol148.com/',
             'Accept': '*/*'
         };
+        if (referer) headers['Referer'] = referer;
         if (range) headers['Range'] = range;
 
         const response = await axios({
-            url: videoUrl,
+            url: targetUrl,
             method: 'GET',
             responseType: 'stream',
             headers: headers,
@@ -37,18 +45,23 @@ router.get('/', async (req, res) => {
         if (response.headers['content-length']) res.setHeader('Content-Length', response.headers['content-length']);
         
         let contentType = response.headers['content-type'];
+        // Fallback for videos if content-type is generic
         if (!contentType || contentType === 'application/octet-stream') {
-             if (videoUrl.includes('.mp4')) contentType = 'video/mp4';
-             else if (videoUrl.includes('.m3u8')) contentType = 'application/vnd.apple.mpegurl';
+             if (targetUrl.includes('.mp4')) contentType = 'video/mp4';
+             else if (targetUrl.includes('.m3u8')) contentType = 'application/vnd.apple.mpegurl';
+             else if (targetUrl.includes('.png')) contentType = 'image/png';
+             else if (targetUrl.includes('.jpg') || targetUrl.includes('.jpeg')) contentType = 'image/jpeg';
         }
         if (contentType) res.setHeader('Content-Type', contentType);
         
         res.setHeader('Accept-Ranges', 'bytes');
+        // Allow CORS for frontend
+        res.setHeader('Access-Control-Allow-Origin', '*');
         
         response.data.pipe(res);
 
     } catch (e) {
-        console.error('Proxy Error:', e.message);
+        console.error(`Proxy Error for ${targetUrl}:`, e.message);
         if (e.response) {
             res.status(e.response.status).send(e.message);
         } else {

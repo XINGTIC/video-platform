@@ -70,6 +70,14 @@ export default function Watch() {
     return v.videoUrl;
   };
 
+  const getThumbnailSrc = (url) => {
+    if (!url) return '';
+    if (url.startsWith('http')) {
+        return `${API_URL}/proxy?url=${encodeURIComponent(url)}`;
+    }
+    return url;
+  };
+
   return (
     <div className="container">
       <Head>
@@ -77,7 +85,7 @@ export default function Watch() {
         <title>{video.title} - 视频平台</title>
       </Head>
       <h1>{video.title}</h1>
-      <video width="100%" controls src={getVideoSrc(video)} poster={video.thumbnailUrl} />
+      <video width="100%" controls src={getVideoSrc(video)} poster={getThumbnailSrc(video.thumbnailUrl)} />
       
       {/* Display Tags */}
       {video.tags && video.tags.length > 0 && (

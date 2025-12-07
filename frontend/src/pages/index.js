@@ -37,6 +37,15 @@ export default function Home() {
     fetchVideos();
   };
 
+  const getThumbnailSrc = (url) => {
+    if (!url) return 'https://via.placeholder.com/300x150';
+    // Proxy external images to bypass referrer/CORS issues
+    if (url.startsWith('http')) {
+        return `${API_URL}/proxy?url=${encodeURIComponent(url)}`;
+    }
+    return url;
+  };
+
   return (
     <div className="container">
       <Head>
@@ -99,10 +108,14 @@ export default function Home() {
                 <Link href={`/watch?id=${video._id}`} className="card-link">
                   <div className="thumbnail-wrapper">
                     <img 
-                      src={video.thumbnailUrl || 'https://via.placeholder.com/300x150'} 
+                      src={getThumbnailSrc(video.thumbnailUrl)}
                       alt={video.title} 
                       className="thumbnail"
-                      onError={(e) => {e.target.src='https://via.placeholder.com/300x150?text=No+Image'}}
+                      loading="lazy"
+                      onError={(e) => {
+                        if (e.target.src.includes('via.placeholder')) return;
+                        e.target.src='https://via.placeholder.com/300x150?text=No+Image'
+                      }}
                     />
                     <div className="duration-badge">{video.duration || '00:00'}</div>
                   </div>
