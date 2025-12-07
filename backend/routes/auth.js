@@ -9,9 +9,22 @@ const JWT_SECRET = process.env.JWT_SECRET || 'secret_key';
 // Register
 router.post('/register', async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { username, email, password } = req.body;
+
+    if (!username || !email || !password) {
+      return res.status(400).json({ message: '所有字段都是必填的' });
+    }
+    if (password.length < 8) {
+      return res.status(400).json({ message: '密码长度必须至少为8位' });
+    }
+
+    const existingUser = await User.findOne({ $or: [{ username }, { email }] });
+    if (existingUser) {
+      return res.status(400).json({ message: '用户名或邮箱已存在' });
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
-    const user = new User({ username, password: hashedPassword });
+    const user = new User({ username, email, password: hashedPassword });
     await user.save();
     res.status(201).json({ message: '用户已创建' });
   } catch (error) {
