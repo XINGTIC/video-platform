@@ -89,10 +89,17 @@ router.get('/', async (req, res) => {
             // Set Cache Control
             res.setHeader('Cache-Control', 'public, max-age=86400');
             res.setHeader('Accept-Ranges', 'bytes');
-            // Allow CORS for frontend
-            res.setHeader('Access-Control-Allow-Origin', '*');
+            // Allow CORS for frontend (Handled by cors middleware, but ensuring headers here just in case, avoiding duplicates if possible)
+            // res.setHeader('Access-Control-Allow-Origin', '*'); 
             
             response.data.pipe(res);
+
+            // Error handling for the stream
+            response.data.on('error', (err) => {
+                console.error('[Proxy] Stream Error:', err.message);
+                res.end();
+            });
+
 
     } catch (e) {
         console.error(`Proxy Error for ${targetUrl}:`, e.message);

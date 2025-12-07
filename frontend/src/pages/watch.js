@@ -147,7 +147,8 @@ export default function Watch() {
             height="auto" 
             controls 
             autoPlay
-            crossOrigin="anonymous"
+            playsInline
+            preload="metadata"
             src={getVideoSrc(video)} 
             poster={getThumbnailSrc(video.thumbnailUrl)} 
             style={{ maxHeight: '80vh', display: 'block' }}
