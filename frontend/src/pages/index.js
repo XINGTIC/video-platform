@@ -46,6 +46,18 @@ export default function Home() {
     return url;
   };
 
+  const formatDuration = (seconds) => {
+    if (!seconds) return '00:00';
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.floor(seconds % 60);
+    
+    if (h > 0) {
+      return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    }
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
   return (
     <div className="container">
       <Head>
@@ -117,7 +129,7 @@ export default function Home() {
                         e.target.src='https://via.placeholder.com/300x150?text=No+Image'
                       }}
                     />
-                    <div className="duration-badge">{video.duration || '00:00'}</div>
+                    <div className="duration-badge">{formatDuration(video.duration)}</div>
                   </div>
                   <div className="card-info">
                     <h3 className="video-title">{video.title}</h3>

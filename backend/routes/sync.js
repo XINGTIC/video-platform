@@ -298,6 +298,15 @@ async function syncH823(limit = 10) {
                 let title = $v('title').text().trim();
                 title = title.replace('Chinese homemade video', '').replace(' - H823', '').trim();
                 
+                // Extract Duration
+                 let duration = 0;
+                 const infoText = $v('.info').text();
+                 const durationMatch = infoText.match(/时长:\s*(\d{2}:\d{2}(?::\d{2})?)/);
+                 if (durationMatch) {
+                     const parts = durationMatch[1].split(':').map(Number);
+                     if (parts.length === 3) duration = parts[0] * 3600 + parts[1] * 60 + parts[2];
+                     else if (parts.length === 2) duration = parts[0] * 60 + parts[1];
+                 }
                 // Check duplicate
                 const exists = await Video.findOne({ title: title });
                 if (exists) continue;
@@ -326,6 +335,7 @@ async function syncH823(limit = 10) {
                         description: title,
                         videoUrl: videoUrl,
                         thumbnailUrl: poster,
+                        duration: duration,
                         sourceUrl: link,
                         provider: 'H823',
                         externalId: link.match(/viewkey=([^&]+)/)?.[1] || link,
