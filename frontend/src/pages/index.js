@@ -8,43 +8,119 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://video-platform-3v33.
 export default function Home() {
   const [videos, setVideos] = useState([]);
   const [error, setError] = useState(null);
+  const [search, setSearch] = useState('');
+  const [sort, setSort] = useState('newest'); // newest | popular
+  const [loading, setLoading] = useState(false);
+
+  const fetchVideos = async () => {
+    setLoading(true);
+    try {
+      const res = await axios.get(`${API_URL}/videos`, {
+        params: { q: search, sort }
+      });
+      setVideos(res.data);
+      setError(null);
+    } catch (err) {
+      console.error(err);
+      setError(`加载视频失败: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    axios.get(`${API_URL}/videos`)
-      .then(res => setVideos(res.data))
-      .catch(err => {
-        console.error(err);
-        setError(`加载视频失败: ${err.message}. API URL: ${API_URL}`);
-      });
-  }, []);
+    fetchVideos();
+  }, [sort]); // Auto fetch on sort change
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    fetchVideos();
+  };
 
   return (
     <div className="container">
       <Head>
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
         <meta name="referrer" content="no-referrer" />
         <title>视频平台</title>
       </Head>
-      <header style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-        <h1>视频平台</h1>
-        <div>
-          <Link href="/login" style={{marginRight: '10px'}}>登录</Link>
-          <Link href="/upload">上传</Link>
+
+      {/* Header / Nav */}
+      <header className="main-header">
+        <div className="logo">视频平台</div>
+        <div className="nav-links">
+          <Link href="/upload" className="nav-btn">上传</Link>
+          <Link href="/login" className="nav-btn primary">登录</Link>
         </div>
       </header>
 
-      {error && <div style={{color: 'red', padding: '20px'}}>{error}</div>}
-      
-
-      <div className="grid">
-        {videos.map(video => (
-          <div key={video._id} className="card">
-            <Link href={`/watch?id=${video._id}`}>
-              <img src={video.thumbnailUrl || 'https://via.placeholder.com/300x150'} alt={video.title} />
-              <h3>{video.title}</h3>
-            </Link>
-          </div>
-        ))}
+      {/* Search Bar */}
+      <div className="search-section">
+        <form onSubmit={handleSearch} className="search-form">
+          <input 
+            type="text" 
+            placeholder="搜索视频..." 
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="search-input"
+          />
+          <button type="submit" className="search-btn">搜索</button>
+        </form>
       </div>
+
+      {/* Tabs */}
+      <div className="tabs">
+        <button 
+          className={`tab-btn ${sort === 'newest' ? 'active' : ''}`}
+          onClick={() => setSort('newest')}
+        >
+          最新视频
+        </button>
+        <button 
+          className={`tab-btn ${sort === 'popular' ? 'active' : ''}`}
+          onClick={() => setSort('popular')}
+        >
+          热门视频
+        </button>
+      </div>
+
+      {/* Content */}
+      {error && <div className="error-msg">{error}</div>}
+      
+      {loading ? (
+        <div className="loading">加载中...</div>
+      ) : (
+        <div className="grid">
+          {videos.length === 0 ? (
+            <div className="empty-state">暂无相关视频</div>
+          ) : (
+            videos.map(video => (
+              <div key={video._id} className="card">
+                <Link href={`/watch?id=${video._id}`} className="card-link">
+                  <div className="thumbnail-wrapper">
+                    <img 
+                      src={video.thumbnailUrl || 'https://via.placeholder.com/300x150'} 
+                      alt={video.title} 
+                      className="thumbnail"
+                      onError={(e) => {e.target.src='https://via.placeholder.com/300x150?text=No+Image'}}
+                    />
+                    <div className="duration-badge">{video.duration || '00:00'}</div>
+                  </div>
+                  <div className="card-info">
+                    <h3 className="video-title">{video.title}</h3>
+                    <div className="video-meta">
+                      <span>👁️ {video.views || 0}</span>
+                      {video.tags && video.tags.length > 0 && (
+                        <span className="tag-badge">{video.tags[0]}</span>
+                      )}
+                    </div>
+                  </div>
+                </Link>
+              </div>
+            ))
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -19,10 +19,30 @@ const getUser = (req, res, next) => {
   next();
 };
 
-// List Videos
+// List Videos with Search and Sort
 router.get('/', async (req, res) => {
   try {
-    const videos = await Video.find().sort({ createdAt: -1 }).limit(50);
+    const { q, sort } = req.query;
+    let query = {};
+    
+    // Search Filter
+    if (q) {
+      query = {
+        $or: [
+          { title: { $regex: q, $options: 'i' } },
+          { tags: { $regex: q, $options: 'i' } },
+          { description: { $regex: q, $options: 'i' } }
+        ]
+      };
+    }
+
+    // Sort Logic
+    let sortOption = { createdAt: -1 }; // Default: Newest
+    if (sort === 'popular') {
+      sortOption = { views: -1 };
+    }
+
+    const videos = await Video.find(query).sort(sortOption).limit(50);
     res.json(videos);
   } catch (error) {
     res.status(500).json({ error: error.message });
