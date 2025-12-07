@@ -256,38 +256,45 @@ async function getH823VideoUrl(link) {
     }
 }
 
-async function syncH823(limit = 10) {
+async function syncH823(limit = 20) {
     console.log(`[Sync-H823] Starting sync (Limit: ${limit})...`);
     const baseURL = 'https://h823.sol148.com';
     let savedCount = 0;
-    
+    let page = 1;
+    const maxPages = 10; // Increased to 10 to ensure we can reach 100 videos (approx 10 pages * 20-24 videos)
+
     try {
-        // 1. Fetch Index
-        const res = await axios.get(baseURL + '/index.php', {
-            headers: { 
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                'Accept-Language': 'zh-CN,zh;q=0.9'
-            }
-        });
-        const $ = cheerio.load(res.data);
-        
-        const videoLinks = [];
-        $('a').each((i, el) => {
-            const href = $(el).attr('href');
-            if (href && href.includes('view_video.php?viewkey=')) {
-                if (!videoLinks.includes(href)) {
-                    videoLinks.push(href.startsWith('http') ? href : baseURL + '/' + href);
-                }
-            }
-        });
-        
-        console.log(`[Sync-H823] Found ${videoLinks.length} video links.`);
-        
-        for (const link of videoLinks) {
-            if (savedCount >= limit) break;
+        while (savedCount < limit && page <= maxPages) {
+            console.log(`[Sync-H823] Scraping page ${page}...`);
+            const url = page === 1 ? baseURL + '/index.php' : baseURL + `/index.php?page=${page}`;
             
-            try {
-                // 2. Fetch Video Page for Metadata
+            const res = await axios.get(url, {
+                headers: { 
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                    'Accept-Language': 'zh-CN,zh;q=0.9'
+                }
+            });
+            const $ = cheerio.load(res.data);
+            
+            const videoLinks = [];
+            $('a').each((i, el) => {
+                const href = $(el).attr('href');
+                if (href && href.includes('view_video.php?viewkey=')) {
+                    if (!videoLinks.includes(href)) {
+                        videoLinks.push(href.startsWith('http') ? href : baseURL + '/' + href);
+                    }
+                }
+            });
+            
+            console.log(`[Sync-H823] Page ${page}: Found ${videoLinks.length} video links.`);
+            
+            if (videoLinks.length === 0) break;
+
+            for (const link of videoLinks) {
+                if (savedCount >= limit) break;
+                
+                try {
+                    // 2. Fetch Video Page for Metadata
                 const vRes = await axios.get(link, {
                      headers: { 
                         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
@@ -350,19 +357,25 @@ async function syncH823(limit = 10) {
                 console.error(`[Sync-H823] Error processing ${link}:`, vErr.message);
             }
         }
-        return savedCount;
-    } catch (e) {
-        console.error('[Sync-H823] Error:', e.message);
+        
+        page++;
+    }
+    
+    console.log(`[Sync-H823] Finished. Saved: ${savedCount}, Last Page: ${page-1}`);
+    return savedCount;
+} catch (e) {
+    console.error('[Sync-H823] Error:', e.message);
         return 0;
     }
 }
 
 // Route
 router.post('/run', async (req, res) => {
-    const limit = req.body.limit || 10;
+    const limit = req.body.limit || 20; // Increased default limit
     
     try {
-        const count1 = await syncMg621(limit);
+        // const count1 = await syncMg621(limit); // Disabled per user request
+        const count1 = 0;
         const count2 = await syncH823(limit);
         
         res.json({

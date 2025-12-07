@@ -72,7 +72,7 @@ cron.schedule('0 */12 * * *', async () => {
   try {
     // Assuming server runs on localhost:5000
     // We call the internal route logic or just trigger via axios
-    await axios.post('http://localhost:5000/api/sync/run', {});
+    await axios.post('http://localhost:5000/api/sync/run', { limit: 100 });
   } catch (error) {
     console.error('[Cron] Sync failed:', error.message);
   }
