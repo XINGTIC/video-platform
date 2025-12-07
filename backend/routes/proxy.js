@@ -11,21 +11,24 @@ router.get('/', async (req, res) => {
         return res.status(400).send('Missing url parameter');
     }
 
+    console.log(`[Proxy] Requesting: ${targetUrl}`);
+    console.log(`[Proxy] Custom Referer: ${customReferer}`);
+    console.log(`[Proxy] Client Range: ${range}`);
+
     try {
         // Determine Referer and Origin based on target domain or query param
-            let referer = customReferer || '';
+            let referer = '';
             let origin = '';
             
-            if (!referer) {
-                if (targetUrl.includes('sol148.com') || targetUrl.includes('h823') || targetUrl.includes('btc620.com')) {
-                    referer = 'https://h823.sol148.com/';
-                    origin = 'https://h823.sol148.com';
-                } else if (targetUrl.includes('xszc666.com') || targetUrl.includes('mg621')) {
-                    referer = 'https://mg621.x5t5d5a4c.work/';
-                    origin = 'https://mg621.x5t5d5a4c.work';
-                }
-            } else {
-                 // If referer is provided, try to derive origin from it
+            // Hardcode known providers
+            if (targetUrl.includes('sol148.com') || targetUrl.includes('h823') || targetUrl.includes('btc620.com')) {
+                referer = 'https://h823.sol148.com/';
+                origin = 'https://h823.sol148.com';
+            } else if (targetUrl.includes('xszc666.com') || targetUrl.includes('mg621')) {
+                referer = 'https://mg621.x5t5d5a4c.work/';
+                origin = 'https://mg621.x5t5d5a4c.work';
+            } else if (customReferer) {
+                 referer = customReferer;
                  try {
                      const refUrl = new URL(referer);
                      origin = refUrl.origin;
@@ -35,7 +38,10 @@ router.get('/', async (req, res) => {
             const headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
                 'Accept': '*/*',
-                'Connection': 'keep-alive'
+                'Connection': 'keep-alive',
+                'Sec-Fetch-Dest': 'video',
+                'Sec-Fetch-Mode': 'no-cors',
+                'Sec-Fetch-Site': 'cross-site'
             };
             if (referer) headers['Referer'] = referer;
             if (origin) headers['Origin'] = origin;
@@ -53,10 +59,13 @@ router.get('/', async (req, res) => {
                 method: 'GET',
                 responseType: 'stream',
                 headers: headers,
-                timeout: 20000 // 20s
+                timeout: 0 // No timeout for streams
             });
 
             // Forward Headers
+            console.log(`[Proxy] Response Status: ${response.status}`);
+            console.log(`[Proxy] Response Headers:`, response.headers['content-type'], response.headers['content-length'], response.headers['content-range']);
+
             if (response.headers['content-range']) {
                 res.status(206);
                 res.setHeader('Content-Range', response.headers['content-range']);

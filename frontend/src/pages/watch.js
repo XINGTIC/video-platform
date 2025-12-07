@@ -85,7 +85,9 @@ export default function Watch() {
 
   const getVideoSrc = (v) => {
     if (v.provider === 'H823' || (v.tags && v.tags.includes('H823'))) {
-        return `${API_URL}/proxy?url=${encodeURIComponent(v.videoUrl)}&referer=${encodeURIComponent('https://h823.sol148.com/')}`;
+        // Use sourceUrl as referer if available, otherwise fallback to root domain
+        const referer = v.sourceUrl || 'https://h823.sol148.com/';
+        return `${API_URL}/proxy?url=${encodeURIComponent(v.videoUrl)}&referer=${encodeURIComponent(referer)}`;
     }
     return v.videoUrl;
   };
@@ -93,6 +95,8 @@ export default function Watch() {
   const getThumbnailSrc = (url) => {
     if (!url) return '';
     if (url.startsWith('http')) {
+        // Use generic referer for images as we might not have sourceUrl handy in all contexts (though here we do via video object, but this function is generic)
+        // Better to just use root domain for images
         return `${API_URL}/proxy?url=${encodeURIComponent(url)}&referer=${encodeURIComponent('https://h823.sol148.com/')}`;
     }
     return url;
@@ -142,16 +146,12 @@ export default function Watch() {
             width="100%" 
             height="auto" 
             controls 
+            autoPlay
+            crossOrigin="anonymous"
             src={getVideoSrc(video)} 
             poster={getThumbnailSrc(video.thumbnailUrl)} 
             style={{ maxHeight: '80vh', display: 'block' }}
         />
-      </div>
-
-      <div style={{textAlign: 'center', marginTop: '10px'}}>
-        <a href={video.sourceUrl} target="_blank" rel="noreferrer" style={{color: 'var(--text-sec)', fontSize: '14px', textDecoration: 'underline'}}>
-            无法播放？点击跳转源站观看
-        </a>
       </div>
       
       {/* Display Tags */}
