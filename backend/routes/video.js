@@ -3,6 +3,7 @@ const router = express.Router();
 const Video = require('../models/Video');
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
+const { getH823VideoUrl } = require('./sync');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'secret_key';
 
@@ -33,6 +34,20 @@ router.get('/:id', getUser, async (req, res) => {
   try {
     const video = await Video.findById(req.params.id);
     if (!video) return res.status(404).json({ message: '视频未找到' });
+
+    // Refresh H823 Link
+    if (video.tags && video.tags.includes('H823') && video.sourceUrl) {
+        try {
+            const newUrl = await getH823VideoUrl(video.sourceUrl);
+            if (newUrl && newUrl !== video.videoUrl) {
+                video.videoUrl = newUrl;
+                await video.save();
+                console.log(`[Video] Refreshed URL for ${video.title}`);
+            }
+        } catch (e) {
+            console.error(`[Video] Failed to refresh URL for ${video.title}: ${e.message}`);
+        }
+    }
 
     // If user is not logged in, assume they are a guest (non-member)
     // Implementation choice: Should guests watch 1 video? Or must register?

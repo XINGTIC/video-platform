@@ -193,6 +193,36 @@ async function syncMg621(limit = 10) {
     }
 }
 
+async function getH823VideoUrl(link) {
+    try {
+        const vRes = await axios.get(link, {
+             headers: { 
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'Accept-Language': 'zh-CN,zh;q=0.9'
+             }
+        });
+        const $v = cheerio.load(vRes.data);
+        
+        const html = $v('video').parent().html() || '';
+        const match = html.match(/strencode2\("([^"]+)"\)/);
+        
+        let videoUrl = null;
+        if (match) {
+            const decoded = decodeURIComponent(match[1]);
+            const srcMatch = decoded.match(/src='([^']+)'/);
+            if (srcMatch) videoUrl = srcMatch[1];
+        }
+        
+        if (!videoUrl) {
+            videoUrl = $v('source').attr('src') || $v('video').attr('src');
+        }
+        return videoUrl;
+    } catch (e) {
+        console.error(`[Get-H823-URL] Error: ${e.message}`);
+        return null;
+    }
+}
+
 async function syncH823(limit = 10) {
     console.log(`[Sync-H823] Starting sync (Limit: ${limit})...`);
     const baseURL = 'https://h823.sol148.com';
@@ -224,7 +254,7 @@ async function syncH823(limit = 10) {
             if (savedCount >= limit) break;
             
             try {
-                // 2. Fetch Video Page
+                // 2. Fetch Video Page for Metadata
                 const vRes = await axios.get(link, {
                      headers: { 
                         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
@@ -239,7 +269,8 @@ async function syncH823(limit = 10) {
                 const exists = await Video.findOne({ title: title });
                 if (exists) continue;
 
-                // 3. Extract Video URL
+                // 3. Extract Video URL (using helper logic inline or calling it, but we have the page loaded already)
+                // We reuse the logic but since we have the page data, let's keep it efficient here.
                 const html = $v('video').parent().html() || '';
                 const match = html.match(/strencode2\("([^"]+)"\)/);
                 
@@ -250,7 +281,6 @@ async function syncH823(limit = 10) {
                     if (srcMatch) videoUrl = srcMatch[1];
                 }
                 
-                // Fallback: look for direct source
                 if (!videoUrl) {
                     videoUrl = $v('source').attr('src') || $v('video').attr('src');
                 }
@@ -264,7 +294,7 @@ async function syncH823(limit = 10) {
                         videoUrl: videoUrl,
                         thumbnailUrl: poster,
                         sourceUrl: link,
-                        tags: ['Imported', 'H823'], // Default tags
+                        tags: ['Imported', 'H823'], 
                         views: 0
                     }).save();
                     console.log(`[Sync-H823] Saved: ${title}`);
@@ -301,4 +331,4 @@ router.post('/run', async (req, res) => {
     }
 });
 
-module.exports = { router, syncMg621, syncH823 };
+module.exports = { router, syncMg621, syncH823, getH823VideoUrl };
