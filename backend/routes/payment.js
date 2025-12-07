@@ -36,14 +36,30 @@ router.post('/verify', getUser, async (req, res) => {
   if (txHash.length >= 64 || txHash.startsWith('0x')) {
     try {
       const user = await User.findById(req.user.id);
+      
+      const { planType } = req.body; // monthly, quarterly, yearly
+      let daysToAdd = 30; // Default to monthly
+      
+      if (planType === 'quarterly') daysToAdd = 90;
+      if (planType === 'yearly') daysToAdd = 365;
+      
       user.isMember = true;
-      // Set expire date to 30 days from now
-      const date = new Date();
-      date.setDate(date.getDate() + 30);
-      user.memberExpireDate = date;
+      
+      // Calculate new expiry date
+      const currentExpiry = user.memberExpireDate && user.memberExpireDate > new Date() 
+        ? new Date(user.memberExpireDate) 
+        : new Date();
+        
+      currentExpiry.setDate(currentExpiry.getDate() + daysToAdd);
+      user.memberExpireDate = currentExpiry;
+      
       await user.save();
       
-      return res.json({ success: true, message: '会员已激活' });
+      return res.json({ 
+        success: true, 
+        message: '会员已激活',
+        expiry: user.memberExpireDate 
+      });
     } catch (error) {
       return res.status(500).json({ error: error.message });
     }
