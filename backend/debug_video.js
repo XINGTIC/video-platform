@@ -30,25 +30,41 @@ async function check() {
 
         if (video.videoUrl) {
             // 4. Test Proxy
+            // Use the same logic as frontend: hardcoded referer if H823
             const proxyUrl = `http://localhost:5000/api/proxy?url=${encodeURIComponent(video.videoUrl)}&referer=${encodeURIComponent('https://h823.sol148.com/')}`;
             console.log('Testing Proxy URL:', proxyUrl);
             
             try {
                 const proxyRes = await axios.get(proxyUrl, { 
-                    responseType: 'stream',
+                    responseType: 'arraybuffer', // Get raw bytes
                     validateStatus: false,
                     headers: {
-                        Range: 'bytes=0-1024' // Try to get the first 1KB
+                        Range: 'bytes=0-100' // Get first 100 bytes
                     }
                 });
                 console.log('Proxy Response Status:', proxyRes.status);
                 console.log('Proxy Response Headers:', proxyRes.headers);
                 
-                // If 200 or 206, it works
+                // Check content
                 if (proxyRes.status === 200 || proxyRes.status === 206) {
-                    console.log('SUCCESS: Video stream is accessible via proxy.');
+                    const data = proxyRes.data;
+                    console.log('Data length:', data.length);
+                    // Print first 20 bytes as hex
+                    const hex = Buffer.from(data).subarray(0, 20).toString('hex');
+                    console.log('First 20 bytes (Hex):', hex);
+                    // Check for MP4 magic number (ftyp => 66 74 79 70)
+                    const asString = Buffer.from(data).subarray(0, 20).toString('utf8');
+                    console.log('First 20 bytes (String):', asString);
+
+                    if (asString.includes('ftyp') || hex.startsWith('000000')) {
+                         console.log('SUCCESS: Valid video data detected.');
+                    } else {
+                         console.log('WARNING: Data does not look like typical MP4 header.');
+                    }
+
                 } else {
                     console.log('FAILURE: Proxy returned error status.');
+                    console.log('Body:', proxyRes.data.toString());
                 }
             } catch (err) {
                 console.error('Proxy Request Failed:', err.message);

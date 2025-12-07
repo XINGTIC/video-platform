@@ -24,9 +24,12 @@ export default function Watch() {
       if (err.response?.status === 403) {
         setError('今日观看限额已用完，请升级会员。');
       } else if (err.response?.status === 401) {
+        localStorage.removeItem('token'); // Clear invalid token
         router.push('/login');
+      } else if (err.response?.status === 404) {
+        setError('视频不存在或已被删除');
       } else {
-        setError('加载视频失败');
+        setError(`加载视频失败: ${err.message} ${err.response?.data?.message || ''}`);
       }
     });
   }, [id]);

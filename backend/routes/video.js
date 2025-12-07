@@ -97,6 +97,9 @@ router.get('/:id', getUser, async (req, res) => {
     }
 
     const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(401).json({ message: '用户不存在或会话已过期，请重新登录' });
+    }
     
     if (!user.isMember && !user.isAdmin) {
       const today = new Date().toISOString().split('T')[0];
