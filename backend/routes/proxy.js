@@ -35,7 +35,13 @@ router.get('/', async (req, res) => {
         }
         
         if (response.headers['content-length']) res.setHeader('Content-Length', response.headers['content-length']);
-        if (response.headers['content-type']) res.setHeader('Content-Type', response.headers['content-type']);
+        
+        let contentType = response.headers['content-type'];
+        if (!contentType || contentType === 'application/octet-stream') {
+             if (videoUrl.includes('.mp4')) contentType = 'video/mp4';
+             else if (videoUrl.includes('.m3u8')) contentType = 'application/vnd.apple.mpegurl';
+        }
+        if (contentType) res.setHeader('Content-Type', contentType);
         
         res.setHeader('Accept-Ranges', 'bytes');
         

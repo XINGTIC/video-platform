@@ -2,7 +2,7 @@ import { useState } from 'react';
 import axios from 'axios';
 import { useRouter } from 'next/router';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://video-platform-3v33.onrender.com/api';
 
 export default function Upload() {
   const [formData, setFormData] = useState({
