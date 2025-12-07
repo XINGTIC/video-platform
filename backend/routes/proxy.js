@@ -41,17 +41,20 @@ router.get('/', async (req, res) => {
         
         if (referer) headers['Referer'] = referer;
         if (origin) headers['Origin'] = origin;
-        if (range) headers['Range'] = range;
-
-        // Check if it is m3u8 request to decide responseType
-        const isM3u8 = targetUrl.includes('.m3u8');
         
+        // Remove Range for m3u8 to avoid partial content issues
+        const isM3u8Like = targetUrl.includes('.m3u8') || targetUrl.includes('mpegurl');
+        if (range && !isM3u8Like) {
+            headers['Range'] = range;
+        }
+
         const response = await axios({
             url: targetUrl,
             method: 'GET',
-            responseType: isM3u8 ? 'text' : 'stream',
+            responseType: 'stream', // Always stream initially
             headers: headers,
-            timeout: 0,
+            timeout: 15000, // Set a reasonable timeout
+            maxRedirects: 5,
             httpsAgent: new https.Agent({ rejectUnauthorized: false })
         });
 
@@ -66,33 +69,38 @@ router.get('/', async (req, res) => {
         }
         
         // Handle m3u8 rewriting
-        if (isM3u8 || (contentType && (contentType.includes('mpegurl') || contentType.includes('m3u8')))) {
-            const m3u8Content = response.data;
-            const baseUrl = targetUrl.substring(0, targetUrl.lastIndexOf('/') + 1);
+        if (isM3u8Like || (contentType && (contentType.includes('mpegurl') || contentType.includes('m3u8')))) {
+            // Convert stream to string
+            const chunks = [];
+            for await (const chunk of response.data) {
+                chunks.push(chunk);
+            }
+            const buffer = Buffer.concat(chunks);
+            const m3u8Content = buffer.toString('utf8');
+
+            // Handle Redirects for Base URL
+            // response.request.res.responseUrl works in Node environment with Axios
+            const finalUrl = response.request.res.responseUrl || targetUrl;
+            const baseUrl = finalUrl.substring(0, finalUrl.lastIndexOf('/') + 1);
             
             // Construct Proxy Base URL
-            // Force HTTPS if on Render/Cloudflare or if X-Forwarded-Proto is https
             let protocol = req.protocol;
             if (req.get('host').includes('render') || req.headers['x-forwarded-proto'] === 'https') {
                 protocol = 'https';
             }
             const proxyBaseUrl = `${protocol}://${req.get('host')}${req.baseUrl}?url=`;
             
-            // Function to encode URL properly
             const encodeProxyUrl = (sourceUrl) => {
-                // Resolve relative URLs
+                if (!sourceUrl) return '';
                 const absoluteUrl = urlModule.resolve(baseUrl, sourceUrl);
                 return `${proxyBaseUrl}${encodeURIComponent(absoluteUrl)}&referer=${encodeURIComponent(referer)}`;
             };
 
-            // Replace TS and Key URLs
-            // Logic: look for lines not starting with #, these are file paths
             const lines = m3u8Content.split('\n');
             const rewrittenLines = lines.map(line => {
                 const trimmed = line.trim();
                 if (!trimmed) return line;
                 if (trimmed.startsWith('#')) {
-                    // Check for URI="..." in #EXT-X-KEY
                     if (trimmed.startsWith('#EXT-X-KEY')) {
                         return trimmed.replace(/URI="([^"]+)"/, (match, uri) => {
                             return `URI="${encodeProxyUrl(uri)}"`;
@@ -100,7 +108,6 @@ router.get('/', async (req, res) => {
                     }
                     return line;
                 }
-                // It's a file path (ts segment)
                 return encodeProxyUrl(trimmed);
             });
 
@@ -108,7 +115,7 @@ router.get('/', async (req, res) => {
             
             res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
             res.setHeader('Access-Control-Allow-Origin', '*');
-            res.setHeader('Cache-Control', 'public, max-age=60'); // Short cache for m3u8
+            res.setHeader('Cache-Control', 'public, max-age=60');
             res.send(finalM3u8);
             return;
         }
