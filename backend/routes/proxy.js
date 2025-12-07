@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 
+const https = require('https');
+
 router.get('/', async (req, res) => {
     const targetUrl = req.query.url;
     const range = req.headers.range;
@@ -12,8 +14,6 @@ router.get('/', async (req, res) => {
     }
 
     console.log(`[Proxy] Requesting: ${targetUrl}`);
-    console.log(`[Proxy] Custom Referer: ${customReferer}`);
-    console.log(`[Proxy] Client Range: ${range}`);
 
     try {
         // Determine Referer and Origin based on target domain or query param
@@ -35,31 +35,29 @@ router.get('/', async (req, res) => {
                  } catch (e) {}
             }
 
+            // Spoof IP to avoid Data Center blocking
+            const randomIP = `114.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`;
+
             const headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                 'Accept': '*/*',
+                'Accept-Encoding': 'identity',
                 'Connection': 'keep-alive',
-                'Sec-Fetch-Dest': 'video',
-                'Sec-Fetch-Mode': 'no-cors',
-                'Sec-Fetch-Site': 'cross-site'
+                'X-Forwarded-For': randomIP,
+                'Client-IP': randomIP
             };
+            
             if (referer) headers['Referer'] = referer;
             if (origin) headers['Origin'] = origin;
             if (range) headers['Range'] = range;
-            
-            // Special handling for btc620 which seems to be strict
-            if (targetUrl.includes('btc620.com')) {
-                // Ensure origin is set if missing
-                if (!headers['Origin']) headers['Origin'] = 'https://h823.sol148.com';
-                // Remove range if not requested to avoid partial content issues on initial load? No, range is usually good.
-            }
 
             const response = await axios({
                 url: targetUrl,
                 method: 'GET',
                 responseType: 'stream',
                 headers: headers,
-                timeout: 0 // No timeout for streams
+                timeout: 0, // No timeout for streams
+                httpsAgent: new https.Agent({ rejectUnauthorized: false }) // Ignore SSL errors
             });
 
             // Forward Headers
@@ -91,11 +89,6 @@ router.get('/', async (req, res) => {
             res.setHeader('Accept-Ranges', 'bytes');
             // Allow CORS for frontend (Handled by cors middleware, but ensuring headers here just in case, avoiding duplicates if possible)
             res.setHeader('Access-Control-Allow-Origin', '*'); 
-            
-            // Spoof IP to avoid Data Center blocking
-            const randomIP = `114.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`;
-            headers['X-Forwarded-For'] = randomIP;
-            headers['Client-IP'] = randomIP; 
             
             response.data.pipe(res);
 
