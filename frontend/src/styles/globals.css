@@ -1,10 +1,11 @@
 :root {
   --primary: #0070f3;
-  --bg-color: #f0f2f5;
-  --card-bg: #ffffff;
-  --text-main: #333333;
-  --text-sec: #666666;
-  --border: #eaeaea;
+  --bg-color: #000000;
+  --card-bg: #1a1a1a;
+  --text-main: #ffffff;
+  --text-sec: #a0a0a0;
+  --border: #333333;
+  --input-bg: #2a2a2a;
 }
 
 * {
@@ -17,7 +18,28 @@ body {
   color: var(--text-main);
   margin: 0;
   padding: 0;
-  padding-bottom: 60px; /* Space for bottom nav if needed later */
+  padding-bottom: 60px;
+}
+
+/* ... (rest of file) */
+
+/* Common Utils for Dark Mode */
+.card-base {
+  background: var(--card-bg);
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  color: var(--text-main);
+}
+
+.input-base {
+  background: var(--input-bg);
+  color: var(--text-main);
+  border: 1px solid var(--border);
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: white;
 }
 
 a {
@@ -55,7 +77,7 @@ a {
 .nav-btn {
   padding: 8px 16px;
   border-radius: 20px;
-  background: white;
+  background: var(--card-bg);
   color: var(--text-main);
   border: 1px solid var(--border);
   font-size: 14px;
@@ -81,7 +103,9 @@ a {
 .search-input {
   flex: 1;
   padding: 12px 16px;
-  border: 1px solid #ddd;
+  background: var(--input-bg);
+  color: var(--text-main);
+  border: 1px solid var(--border);
   border-radius: 24px;
   font-size: 16px;
   outline: none;
@@ -172,7 +196,7 @@ a {
   position: relative;
   width: 100%;
   padding-top: 56.25%; /* 16:9 Aspect Ratio */
-  background: #eee;
+  background: var(--input-bg);
 }
 
 .thumbnail {
@@ -188,7 +212,7 @@ a {
   position: absolute;
   bottom: 8px;
   right: 8px;
-  background: rgba(0,0,0,0.7);
+  background: rgba(0,0,0,0.8);
   color: white;
   padding: 2px 6px;
   border-radius: 4px;
@@ -220,7 +244,8 @@ a {
 }
 
 .tag-badge {
-  background: #eee;
+  background: var(--input-bg);
+  color: var(--text-sec);
   padding: 2px 6px;
   border-radius: 4px;
   max-width: 80px;

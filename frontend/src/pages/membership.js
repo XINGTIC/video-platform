@@ -24,7 +24,10 @@ export default function Membership() {
   const [selectedPlan, setSelectedPlan] = useState(PLANS[1]); // Default to quarterly
   const router = useRouter();
 
+  const [mounted, setMounted] = useState(false);
+
   useEffect(() => {
+    setMounted(true);
     // Check login
     const token = localStorage.getItem('token');
     const userData = localStorage.getItem('user');
@@ -93,18 +96,18 @@ export default function Membership() {
     flexDirection: 'column',
     alignItems: 'center',
     minHeight: '100vh',
-    background: '#f0f2f5',
     padding: '20px'
   };
 
   const cardStyle = {
-    background: 'white',
     padding: '40px',
     borderRadius: '10px',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
     width: '100%',
     maxWidth: '800px', // Wider for plans
-    textAlign: 'center'
+    textAlign: 'center',
+    background: 'var(--card-bg)',
+    color: 'var(--text-main)'
   };
 
   const planContainerStyle = {
@@ -116,13 +119,13 @@ export default function Membership() {
   };
 
   const getPlanStyle = (plan) => ({
-    border: selectedPlan.id === plan.id ? '2px solid #0070f3' : '1px solid #ddd',
+    border: selectedPlan.id === plan.id ? '2px solid var(--primary)' : '1px solid var(--border)',
     borderRadius: '8px',
     padding: '20px',
     width: '30%',
     minWidth: '140px',
     cursor: 'pointer',
-    background: selectedPlan.id === plan.id ? '#f0f9ff' : 'white',
+    background: selectedPlan.id === plan.id ? 'rgba(0,112,243,0.2)' : 'var(--card-bg)',
     position: 'relative',
     transition: 'all 0.2s'
   });
@@ -134,13 +137,13 @@ export default function Membership() {
       </Head>
       
       <div style={{width: '100%', maxWidth: '800px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-        <Link href="/" style={{color: '#0070f3', textDecoration: 'none'}}>← 返回首页</Link>
-        {user && <span>当前状态: {user.isMember ? <span style={{color: 'green', fontWeight: 'bold'}}>尊贵会员</span> : '普通用户'}</span>}
+        <Link href="/" style={{color: 'var(--primary)', textDecoration: 'none'}}>← 返回首页</Link>
+        {user && <span>当前状态: {user.isMember ? <span style={{color: 'var(--primary)', fontWeight: 'bold'}}>尊贵会员</span> : '普通用户'}</span>}
       </div>
 
       <div style={cardStyle}>
         <h1 style={{fontSize: '24px', marginBottom: '10px'}}>选择会员套餐</h1>
-        <p style={{color: '#666', marginBottom: '30px'}}>开通会员，畅享无限观看</p>
+        <p style={{color: 'var(--text-sec)', marginBottom: '30px'}}>开通会员，畅享无限观看</p>
         
         {/* Plan Selection */}
         <div style={planContainerStyle}>
@@ -153,57 +156,59 @@ export default function Membership() {
                     {plan.recommend && (
                         <div style={{
                             position: 'absolute', top: '-10px', right: '-10px', 
-                            background: '#ff4d4f', color: 'white', 
+                            background: 'var(--primary)', color: 'white', 
                             fontSize: '12px', padding: '2px 8px', borderRadius: '10px'
                         }}>
                             推荐
                         </div>
                     )}
-                    <h3 style={{margin: '10px 0', color: '#333'}}>{plan.name}</h3>
-                    <div style={{fontSize: '20px', fontWeight: 'bold', color: '#0070f3'}}>
+                    <h3 style={{margin: '10px 0', color: 'var(--text-main)'}}>{plan.name}</h3>
+                    <div style={{fontSize: '20px', fontWeight: 'bold', color: 'var(--primary)'}}>
                         {plan.priceUSDT} USDT
                     </div>
-                    <div style={{fontSize: '12px', color: '#999', textDecoration: 'line-through'}}>
+                    <div style={{fontSize: '12px', color: 'var(--text-sec)', textDecoration: 'line-through'}}>
                         ¥{plan.priceCNY}
                     </div>
                 </div>
             ))}
         </div>
 
-        <hr style={{border: 'none', borderTop: '1px solid #eee', margin: '30px 0'}} />
+        <hr style={{border: 'none', borderTop: '1px solid var(--border)', margin: '30px 0'}} />
 
         {user?.isMember ? (
-          <div style={{color: 'green', padding: '20px'}}>
+          <div style={{color: 'var(--primary)', padding: '20px'}}>
             <h3>您已经是会员</h3>
             <p>有效期至: {user.memberExpireDate ? new Date(user.memberExpireDate).toLocaleDateString() : '永久'}</p>
-            <p style={{fontSize: '14px', color: '#666'}}>您可以继续充值延长有效期</p>
+            <p style={{fontSize: '14px', color: 'var(--text-sec)'}}>您可以继续充值延长有效期</p>
           </div>
         ) : null}
 
-        <div style={{textAlign: 'left', background: '#f8f9fa', padding: '20px', borderRadius: '8px'}}>
+        <div style={{textAlign: 'left', background: 'var(--input-bg)', padding: '20px', borderRadius: '8px'}}>
             <h3 style={{marginTop: 0, fontSize: '18px'}}>支付详情</h3>
-            <p>应付金额: <span style={{color: '#d32f2f', fontWeight: 'bold', fontSize: '20px'}}>{selectedPlan.priceUSDT} USDT</span></p>
+            <p>应付金额: <span style={{color: 'var(--primary)', fontWeight: 'bold', fontSize: '20px'}}>{selectedPlan.priceUSDT} USDT</span></p>
             <p style={{fontSize: '14px'}}>请扫描下方二维码或复制地址支付</p>
-            <p style={{color: 'red', fontSize: '14px', fontWeight: 'bold'}}>注意: 仅支持 {network} 网络</p>
+            <p style={{color: 'var(--primary)', fontSize: '14px', fontWeight: 'bold'}}>注意: 仅支持 {network} 网络</p>
 
             <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '20px 0'}}>
-               {address ? (
-                   <QRCodeCanvas value={address} size={180} />
+               {mounted && address ? (
+                   <div style={{padding: '10px', background: 'white', borderRadius: '8px'}}>
+                       <QRCodeCanvas value={address} size={180} />
+                   </div>
                ) : (
-                   <div style={{width: 180, height: 180, background: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
-                       加载中...
+                   <div style={{width: 180, height: 180, background: 'var(--input-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
+                       {mounted ? '加载中...' : '初始化...'}
                    </div>
                )}
                
                <div style={{
-                   background: 'white', border: '1px solid #ddd', padding: '10px', 
+                   background: 'var(--card-bg)', border: '1px solid var(--border)', padding: '10px', 
                    marginTop: '15px', borderRadius: '4px', wordBreak: 'break-all',
                    fontFamily: 'monospace', display: 'flex', alignItems: 'center'
                }}>
                    {address}
                    <button onClick={handleCopy} style={{
-                       marginLeft: '10px', background: 'none', border: '1px solid #ddd', 
-                       borderRadius: '4px', padding: '2px 8px', cursor: 'pointer'
+                       marginLeft: '10px', background: 'none', border: '1px solid var(--border)', 
+                       borderRadius: '4px', padding: '2px 8px', cursor: 'pointer', color: 'var(--text-main)'
                    }}>复制</button>
                </div>
             </div>
@@ -218,7 +223,9 @@ export default function Membership() {
                 style={{
                   width: '100%',
                   padding: '12px',
-                  border: '1px solid #ddd',
+                  background: 'var(--card-bg)',
+                  color: 'var(--text-main)',
+                  border: '1px solid var(--border)',
                   borderRadius: '6px',
                   fontSize: '14px',
                   marginBottom: '15px'
@@ -232,7 +239,7 @@ export default function Membership() {
                 style={{
                   width: '100%',
                   padding: '12px',
-                  background: loading ? '#ccc' : '#28a745',
+                  background: loading ? 'var(--input-bg)' : 'var(--primary)',
                   color: 'white',
                   border: 'none',
                   borderRadius: '6px',
@@ -250,8 +257,8 @@ export default function Membership() {
                   marginTop: '15px', 
                   padding: '10px', 
                   borderRadius: '4px', 
-                  background: message.includes('成功') ? '#d4edda' : '#f8d7da',
-                  color: message.includes('成功') ? '#155724' : '#721c24',
+                  background: message.includes('成功') ? 'rgba(74, 222, 128, 0.2)' : 'rgba(255, 77, 79, 0.2)',
+                  color: message.includes('成功') ? '#4ade80' : '#ff4d4f',
                   textAlign: 'center'
                 }}>
                   {message}

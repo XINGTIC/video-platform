@@ -19,10 +19,10 @@ const getUser = (req, res, next) => {
   next();
 };
 
-// List Videos with Search and Sort
+// List Videos with Search, Sort, and Pagination
 router.get('/', async (req, res) => {
   try {
-    const { q, sort } = req.query;
+    const { q, sort, page = 1, limit = 20 } = req.query;
     let query = {};
     
     // Search Filter
@@ -42,8 +42,26 @@ router.get('/', async (req, res) => {
       sortOption = { views: -1 };
     }
 
-    const videos = await Video.find(query).sort(sortOption).limit(50);
-    res.json(videos);
+    // Pagination
+    const pageNum = parseInt(page) || 1;
+    const limitNum = parseInt(limit) || 20;
+    const skip = (pageNum - 1) * limitNum;
+
+    // Fetch videos with projection to reduce payload size
+    const videos = await Video.find(query)
+      .select('title thumbnailUrl duration views createdAt tags isMemberOnly') 
+      .sort(sortOption)
+      .skip(skip)
+      .limit(limitNum);
+      
+    const total = await Video.countDocuments(query);
+
+    res.json({
+      videos,
+      currentPage: pageNum,
+      totalPages: Math.ceil(total / limitNum),
+      totalVideos: total
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -80,7 +98,7 @@ router.get('/:id', getUser, async (req, res) => {
 
     const user = await User.findById(req.user.id);
     
-    if (!user.isMember) {
+    if (!user.isMember && !user.isAdmin) {
       const today = new Date().toISOString().split('T')[0];
       
       if (user.dailyWatch.date !== today) {

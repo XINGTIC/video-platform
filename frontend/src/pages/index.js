@@ -11,14 +11,28 @@ export default function Home() {
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState('newest'); // newest | popular
   const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
 
-  const fetchVideos = async () => {
+  const fetchVideos = async (pageNum = 1, reset = false) => {
+    if (loading && !reset && pageNum === page) return; // Prevent duplicate reqs
+    
     setLoading(true);
     try {
       const res = await axios.get(`${API_URL}/videos`, {
-        params: { q: search, sort }
+        params: { q: search, sort, page: pageNum, limit: 20 }
       });
-      setVideos(res.data);
+      
+      const newVideos = res.data.videos || [];
+      const totalPages = res.data.totalPages || 1;
+
+      if (reset) {
+        setVideos(newVideos);
+      } else {
+        setVideos(prev => [...prev, ...newVideos]);
+      }
+      
+      setHasMore(pageNum < totalPages);
       setError(null);
     } catch (err) {
       console.error(err);
@@ -28,13 +42,24 @@ export default function Home() {
     }
   };
 
+  // Initial load or sort/search change
   useEffect(() => {
-    fetchVideos();
-  }, [sort]); // Auto fetch on sort change
+    setPage(1);
+    fetchVideos(1, true);
+  }, [sort]);
 
   const handleSearch = (e) => {
     e.preventDefault();
-    fetchVideos();
+    setPage(1);
+    fetchVideos(1, true);
+  };
+
+  const loadMore = () => {
+    if (!loading && hasMore) {
+      const nextPage = page + 1;
+      setPage(nextPage);
+      fetchVideos(nextPage, false);
+    }
   };
 
   const getThumbnailSrc = (url) => {
@@ -70,7 +95,8 @@ export default function Home() {
       <header className="main-header">
         <div className="logo">视频平台</div>
         <div className="nav-links">
-          <Link href="/membership" className="nav-btn" style={{background: '#ffd700', color: '#000'}}>会员升级</Link>
+          <Link href="/invite" className="nav-btn" style={{borderColor: 'var(--primary)', color: 'var(--primary)'}}>邀请有礼</Link>
+          <Link href="/membership" className="nav-btn" style={{background: 'var(--primary)', color: 'white'}}>会员升级</Link>
           <Link href="/upload" className="nav-btn">上传</Link>
           <Link href="/login" className="nav-btn primary">登录</Link>
         </div>
@@ -109,42 +135,67 @@ export default function Home() {
       {/* Content */}
       {error && <div className="error-msg">{error}</div>}
       
-      {loading ? (
-        <div className="loading">加载中...</div>
-      ) : (
-        <div className="grid">
-          {videos.length === 0 ? (
-            <div className="empty-state">暂无相关视频</div>
-          ) : (
-            videos.map(video => (
-              <div key={video._id} className="card">
-                <Link href={`/watch?id=${video._id}`} className="card-link">
-                  <div className="thumbnail-wrapper">
-                    <img 
-                      src={getThumbnailSrc(video.thumbnailUrl)}
-                      alt={video.title} 
-                      className="thumbnail"
-                      loading="lazy"
-                      onError={(e) => {
-                        if (e.target.src.includes('via.placeholder')) return;
-                        e.target.src='https://via.placeholder.com/300x150?text=No+Image'
-                      }}
-                    />
-                    <div className="duration-badge">{formatDuration(video.duration)}</div>
+      <div className="grid">
+        {videos.length === 0 && !loading ? (
+          <div className="empty-state">暂无相关视频</div>
+        ) : (
+          videos.map(video => (
+            <div key={video._id} className="card">
+              <Link href={`/watch?id=${video._id}`} className="card-link">
+                <div className="thumbnail-wrapper">
+                  <img 
+                    src={getThumbnailSrc(video.thumbnailUrl)}
+                    alt={video.title} 
+                    className="thumbnail"
+                    loading="lazy"
+                    onError={(e) => {
+                      if (e.target.src.includes('via.placeholder')) return;
+                      e.target.src='https://via.placeholder.com/300x150/000000/FFFFFF?text=No+Image'
+                    }}
+                  />
+                  <div className="duration-badge">{formatDuration(video.duration)}</div>
+                </div>
+                <div className="card-info">
+                  <h3 className="video-title">{video.title}</h3>
+                  <div className="video-meta">
+                    <span>👁️ {video.views || 0}</span>
+                    {video.tags && video.tags.length > 0 && (
+                      <span className="tag-badge">{video.tags[0]}</span>
+                    )}
                   </div>
-                  <div className="card-info">
-                    <h3 className="video-title">{video.title}</h3>
-                    <div className="video-meta">
-                      <span>👁️ {video.views || 0}</span>
-                      {video.tags && video.tags.length > 0 && (
-                        <span className="tag-badge">{video.tags[0]}</span>
-                      )}
-                    </div>
-                  </div>
-                </Link>
-              </div>
-            ))
-          )}
+                </div>
+              </Link>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Loading & Pagination */}
+      {loading && <div className="loading" style={{textAlign: 'center', padding: '20px'}}>加载中...</div>}
+      
+      {!loading && hasMore && videos.length > 0 && (
+        <div style={{textAlign: 'center', padding: '20px', marginBottom: '40px'}}>
+          <button 
+            onClick={loadMore}
+            style={{
+              padding: '10px 30px',
+              fontSize: '16px',
+              background: 'var(--primary)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '20px',
+              cursor: 'pointer',
+              boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
+            }}
+          >
+            加载更多
+          </button>
+        </div>
+      )}
+      
+      {!hasMore && videos.length > 0 && (
+        <div style={{textAlign: 'center', padding: '20px', color: 'var(--text-sec)', marginBottom: '20px'}}>
+          没有更多视频了
         </div>
       )}
     </div>

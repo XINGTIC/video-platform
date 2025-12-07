@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useRouter } from 'next/router';
 
@@ -8,8 +8,16 @@ export default function Login() {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [inviteCode, setInviteCode] = useState('');
   const [isRegister, setIsRegister] = useState(false);
   const router = useRouter();
+
+  useEffect(() => {
+    if (router.query.invite) {
+      setIsRegister(true);
+      setInviteCode(router.query.invite);
+    }
+  }, [router.query]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -23,7 +31,7 @@ export default function Login() {
 
     try {
       const payload = isRegister 
-        ? { username, email, password } 
+        ? { username, email, password, inviteCode } 
         : { username, password };
 
       const res = await axios.post(`${API_URL}${endpoint}`, payload);
@@ -48,15 +56,15 @@ export default function Login() {
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: '100vh',
-    background: '#f0f2f5',
     padding: '20px'
   };
 
   const cardStyle = {
-    background: 'white',
+    background: 'var(--card-bg)',
+    color: 'var(--text-main)',
     padding: '40px',
     borderRadius: '10px',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
     width: '100%',
     maxWidth: '400px',
     textAlign: 'center'
@@ -66,7 +74,9 @@ export default function Login() {
     width: '100%',
     padding: '12px',
     margin: '10px 0',
-    border: '1px solid #ddd',
+    background: 'var(--input-bg)',
+    color: 'var(--text-main)',
+    border: '1px solid var(--border)',
     borderRadius: '6px',
     fontSize: '16px'
   };
@@ -74,7 +84,7 @@ export default function Login() {
   const buttonStyle = {
     width: '100%',
     padding: '12px',
-    background: '#0070f3',
+    background: 'var(--primary)',
     color: 'white',
     border: 'none',
     borderRadius: '6px',
@@ -85,7 +95,7 @@ export default function Login() {
   };
 
   const linkStyle = {
-    color: '#0070f3',
+    color: 'var(--primary)',
     cursor: 'pointer',
     marginTop: '20px',
     display: 'block',
@@ -95,7 +105,7 @@ export default function Login() {
   return (
     <div style={containerStyle}>
       <div style={cardStyle}>
-        <h2 style={{marginBottom: '30px', color: '#333'}}>{isRegister ? '注册账号' : '登录'}</h2>
+        <h2 style={{marginBottom: '30px', color: 'var(--text-main)'}}>{isRegister ? '注册账号' : '登录'}</h2>
         <form onSubmit={handleSubmit}>
           <input 
             style={inputStyle}
@@ -125,6 +135,15 @@ export default function Login() {
             required
             minLength={isRegister ? 8 : undefined}
           />
+          
+          {isRegister && (
+            <input 
+              style={inputStyle}
+              placeholder="邀请码 (选填)" 
+              value={inviteCode} 
+              onChange={e => setInviteCode(e.target.value)} 
+            />
+          )}
           
           <button style={buttonStyle} type="submit">
             {isRegister ? '立即注册' : '登录'}

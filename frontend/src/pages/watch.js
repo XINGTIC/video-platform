@@ -58,8 +58,8 @@ export default function Watch() {
             <button 
                 className="btn" 
                 style={{
-                    background: '#ffd700', 
-                    color: '#000', 
+                    background: 'var(--primary)', 
+                    color: 'white', 
                     border: 'none', 
                     padding: '10px 20px', 
                     borderRadius: '5px', 
@@ -72,7 +72,7 @@ export default function Watch() {
                 立即升级会员
             </button>
             <div style={{marginTop: '20px'}}>
-                <button onClick={() => router.push('/')} style={{background: 'none', border: 'none', color: '#0070f3', cursor: 'pointer'}}>
+                <button onClick={() => router.push('/')} style={{background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer'}}>
                     返回首页
                 </button>
             </div>
@@ -98,11 +98,42 @@ export default function Watch() {
     return url;
   };
 
+  const handleShare = (platform) => {
+    const url = window.location.href;
+    const text = `Check out this video: ${video.title}`;
+    
+    if (platform === 'copy') {
+      navigator.clipboard.writeText(url).then(() => {
+        alert('链接已复制到剪贴板！');
+      });
+    } else if (platform === 'wechat') {
+      // WeChat doesn't support direct web sharing via URL scheme easily without SDK
+      // Best practice is to show QR code or copy link
+      // For now, we reuse copy link with a specific message or just copy
+      navigator.clipboard.writeText(url).then(() => {
+        alert('链接已复制！请在微信中粘贴发送。');
+      });
+    } else if (platform === 'qq') {
+       // QQ Web Share
+       const shareUrl = `http://connect.qq.com/widget/shareqq/index.html?url=${encodeURIComponent(url)}&title=${encodeURIComponent(video.title)}&desc=${encodeURIComponent(video.description || '')}&summary=${encodeURIComponent(text)}&site=VideoPlatform`;
+       window.open(shareUrl, '_blank');
+    } else if (platform === 'douyin') {
+      // Douyin doesn't have a web share URL scheme
+      navigator.clipboard.writeText(url).then(() => {
+        alert('链接已复制！请在抖音中粘贴或发布。');
+      });
+    }
+  };
+
   return (
     <div className="container">
       <Head>
         <meta name="referrer" content="no-referrer" />
         <title>{video.title} - 视频平台</title>
+        <meta property="og:title" content={video.title} />
+        <meta property="og:description" content={video.description || '点击观看视频'} />
+        <meta property="og:image" content={getThumbnailSrc(video.thumbnailUrl)} />
+        <meta property="og:type" content="video.other" />
       </Head>
       <h1>{video.title}</h1>
       <video width="100%" controls src={getVideoSrc(video)} poster={getThumbnailSrc(video.thumbnailUrl)} />
@@ -112,17 +143,30 @@ export default function Watch() {
         <div style={{marginTop: '10px'}}>
             {video.tags.map((tag, index) => (
                 <span key={index} style={{
-                    background: '#eee', 
+                    background: 'var(--input-bg)', 
+                    color: 'var(--text-sec)',
                     padding: '5px 10px', 
                     borderRadius: '15px', 
                     marginRight: '5px',
-                    fontSize: '12px'
+                    fontSize: '12px',
+                    border: '1px solid var(--border)'
                 }}>
                     {tag}
                 </span>
             ))}
         </div>
       )}
+
+      {/* Share Buttons */}
+      <div style={{marginTop: '20px', padding: '15px', background: 'var(--card-bg)', borderRadius: '8px'}}>
+        <h3 style={{marginTop: 0, fontSize: '16px'}}>分享视频</h3>
+        <div style={{display: 'flex', gap: '10px'}}>
+          <button onClick={() => handleShare('copy')} style={{padding: '8px 15px', cursor: 'pointer', borderRadius: '5px', border: '1px solid var(--border)', background: 'var(--input-bg)', color: 'var(--text-main)'}}>📋 复制链接</button>
+          <button onClick={() => handleShare('wechat')} style={{padding: '8px 15px', cursor: 'pointer', borderRadius: '5px', border: 'none', background: '#07C160', color: 'white'}}>💬 微信</button>
+          <button onClick={() => handleShare('qq')} style={{padding: '8px 15px', cursor: 'pointer', borderRadius: '5px', border: 'none', background: '#12B7F5', color: 'white'}}>🐧 QQ</button>
+          <button onClick={() => handleShare('douyin')} style={{padding: '8px 15px', cursor: 'pointer', borderRadius: '5px', border: 'none', background: '#1c1c1c', color: 'white', border: '1px solid #333'}}>🎵 抖音</button>
+        </div>
+      </div>
 
       <p>{video.description}</p>
     </div>

@@ -11,6 +11,9 @@ const { router: syncRoutes, syncMg621, syncH823 } = require('./routes/sync');
 const cron = require('node-cron');
 const axios = require('axios');
 const Video = require('./models/Video');
+const User = require('./models/User');
+const bcrypt = require('bcryptjs');
+const { MongoMemoryServer } = require('mongodb-memory-server');
 
 const app = express();
 
@@ -23,15 +26,58 @@ mongoose.connection.on('connected', () => console.log('Mongoose connected'));
 mongoose.connection.on('error', (err) => console.error('Mongoose connection error:', err));
 mongoose.connection.on('disconnected', () => console.log('Mongoose disconnected'));
 
-mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/videoplatform', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-.then(async () => {
-  console.log('MongoDB Connected');
+const startDB = async () => {
+  let mongoUri = process.env.MONGO_URI || 'mongodb://localhost:27017/videoplatform';
   
-  // Check if DB is empty and trigger initial sync
   try {
+    // Try primary connection
+    await mongoose.connect(mongoUri, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      serverSelectionTimeoutMS: 5000 // Fail fast if not running
+    });
+    console.log('MongoDB Connected (Primary)');
+  } catch (err) {
+    console.warn('Primary MongoDB connection failed. Attempting in-memory fallback...');
+    try {
+      const mongod = await MongoMemoryServer.create();
+      mongoUri = mongod.getUri();
+      await mongoose.connect(mongoUri, {
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+      });
+      console.log('MongoDB Connected (In-Memory Fallback)');
+    } catch (fallbackErr) {
+      console.error('Fatal: All MongoDB connection attempts failed.', fallbackErr);
+      return;
+    }
+  }
+
+  // Initial Sync Logic
+  try {
+    // Seed Admin User
+    const adminUser = await User.findOne({ username: 'xingtic' });
+    if (!adminUser) {
+        const hashedPassword = await bcrypt.hash('Xingtic.0.', 10);
+        await User.create({
+            username: 'xingtic',
+            email: 'xingtic@admin.com', // Dummy email
+            password: hashedPassword,
+            isAdmin: true,
+            isMember: true, // Also give member status to be safe, though we will check isAdmin
+            inviteCode: 'ADMIN1'
+        });
+        console.log('[Startup] Admin user "xingtic" created.');
+    } else {
+        // Ensure admin rights if user exists
+        if (!adminUser.isAdmin) {
+            adminUser.isAdmin = true;
+            adminUser.isMember = true;
+            await adminUser.save();
+            console.log('[Startup] Admin user "xingtic" updated with super permissions.');
+        }
+    }
+
     const count = await Video.countDocuments();
     console.log(`[Startup] Current video count: ${count}`);
     if (count === 0) {
@@ -50,8 +96,9 @@ mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/videoplatfo
   } catch (e) {
     console.error('[Startup] Failed to check video count:', e.message);
   }
-})
-.catch(err => console.error('MongoDB Connection Error:', err));
+};
+
+startDB();
 
 // Health Check Route
 app.get('/api/health', (req, res) => {
