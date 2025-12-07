@@ -1,11 +1,10 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
-const { syncMg621, syncH823 } = require('./routes/sync');
 const Video = require('./models/Video');
+const { syncMg621, syncH823 } = require('./routes/sync');
 
-// Connect to DB
+// Use the correct connection string
 const MONGO_URI = 'mongodb+srv://appuser:appuser123@cluster0.rlv7zxw.mongodb.net/videoplatform?retryWrites=true&w=majority';
-console.log('Connecting to:', MONGO_URI);
 
 mongoose.connect(MONGO_URI, {
   useNewUrlParser: true,
@@ -15,7 +14,12 @@ mongoose.connect(MONGO_URI, {
   console.log('MongoDB Connected');
   
   try {
-    console.log('Starting Manual Sync...');
+    console.log('Clearing old synced videos...');
+    // Delete videos that have a sourceUrl (imported ones)
+    const res = await Video.deleteMany({ sourceUrl: { $exists: true, $ne: null } });
+    console.log(`Deleted ${res.deletedCount} videos.`);
+    
+    console.log('Starting fresh sync...');
     
     const limit = 10;
     

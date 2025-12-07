@@ -201,7 +201,10 @@ async function syncH823(limit = 10) {
     try {
         // 1. Fetch Index
         const res = await axios.get(baseURL + '/index.php', {
-            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' }
+            headers: { 
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'Accept-Language': 'zh-CN,zh;q=0.9'
+            }
         });
         const $ = cheerio.load(res.data);
         
@@ -223,11 +226,14 @@ async function syncH823(limit = 10) {
             try {
                 // 2. Fetch Video Page
                 const vRes = await axios.get(link, {
-                     headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' }
+                     headers: { 
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                        'Accept-Language': 'zh-CN,zh;q=0.9'
+                     }
                 });
                 const $v = cheerio.load(vRes.data);
                 let title = $v('title').text().trim();
-                title = title.replace('Chinese homemade video', '').trim();
+                title = title.replace('Chinese homemade video', '').replace(' - H823', '').trim();
                 
                 // Check duplicate
                 const exists = await Video.findOne({ title: title });

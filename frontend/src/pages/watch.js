@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useRouter } from 'next/router';
+import Head from 'next/head';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
@@ -64,6 +65,10 @@ export default function Watch() {
 
   return (
     <div className="container">
+      <Head>
+        <meta name="referrer" content="no-referrer" />
+        <title>{video.title} - 视频平台</title>
+      </Head>
       <h1>{video.title}</h1>
       <video width="100%" controls src={video.videoUrl} poster={video.thumbnailUrl} />
       

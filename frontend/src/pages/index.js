@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 import Link from 'next/link';
+import Head from 'next/head';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
@@ -19,6 +20,10 @@ export default function Home() {
 
   return (
     <div className="container">
+      <Head>
+        <meta name="referrer" content="no-referrer" />
+        <title>视频平台</title>
+      </Head>
       <header style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
         <h1>视频平台</h1>
         <div>
