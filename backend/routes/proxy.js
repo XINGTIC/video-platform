@@ -34,11 +34,19 @@ router.get('/', async (req, res) => {
 
             const headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                'Accept': '*/*'
+                'Accept': '*/*',
+                'Connection': 'keep-alive'
             };
             if (referer) headers['Referer'] = referer;
             if (origin) headers['Origin'] = origin;
             if (range) headers['Range'] = range;
+            
+            // Special handling for btc620 which seems to be strict
+            if (targetUrl.includes('btc620.com')) {
+                // Ensure origin is set if missing
+                if (!headers['Origin']) headers['Origin'] = 'https://h823.sol148.com';
+                // Remove range if not requested to avoid partial content issues on initial load? No, range is usually good.
+            }
 
             const response = await axios({
                 url: targetUrl,

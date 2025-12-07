@@ -136,7 +136,23 @@ export default function Watch() {
         <meta property="og:type" content="video.other" />
       </Head>
       <h1>{video.title}</h1>
-      <video width="100%" controls src={getVideoSrc(video)} poster={getThumbnailSrc(video.thumbnailUrl)} />
+      
+      <div style={{ maxWidth: '900px', margin: '0 auto', background: '#000', borderRadius: '8px', overflow: 'hidden' }}>
+        <video 
+            width="100%" 
+            height="auto" 
+            controls 
+            src={getVideoSrc(video)} 
+            poster={getThumbnailSrc(video.thumbnailUrl)} 
+            style={{ maxHeight: '80vh', display: 'block' }}
+        />
+      </div>
+
+      <div style={{textAlign: 'center', marginTop: '10px'}}>
+        <a href={video.sourceUrl} target="_blank" rel="noreferrer" style={{color: 'var(--text-sec)', fontSize: '14px', textDecoration: 'underline'}}>
+            无法播放？点击跳转源站观看
+        </a>
+      </div>
       
       {/* Display Tags */}
       {video.tags && video.tags.length > 0 && (
