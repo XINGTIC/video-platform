@@ -17,6 +17,9 @@ const { MongoMemoryServer } = require('mongodb-memory-server');
 
 const app = express();
 
+// Trust Proxy for Render/Cloudflare (Required for correct req.protocol and req.ip)
+app.set('trust proxy', 1);
+
 // Middleware
 app.use(cors());
 app.use(express.json());

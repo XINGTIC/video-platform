@@ -69,7 +69,14 @@ router.get('/', async (req, res) => {
         if (isM3u8 || (contentType && (contentType.includes('mpegurl') || contentType.includes('m3u8')))) {
             const m3u8Content = response.data;
             const baseUrl = targetUrl.substring(0, targetUrl.lastIndexOf('/') + 1);
-            const proxyBaseUrl = `${req.protocol}://${req.get('host')}${req.baseUrl}?url=`;
+            
+            // Construct Proxy Base URL
+            // Force HTTPS if on Render/Cloudflare or if X-Forwarded-Proto is https
+            let protocol = req.protocol;
+            if (req.get('host').includes('render') || req.headers['x-forwarded-proto'] === 'https') {
+                protocol = 'https';
+            }
+            const proxyBaseUrl = `${protocol}://${req.get('host')}${req.baseUrl}?url=`;
             
             // Function to encode URL properly
             const encodeProxyUrl = (sourceUrl) => {
