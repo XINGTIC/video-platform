@@ -228,30 +228,56 @@ async function syncMg621(limit = 10) {
 
 async function getH823VideoUrl(link) {
     try {
+        console.log('[Get-H823-URL] Fetching:', link);
         const vRes = await axios.get(link, {
              headers: { 
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                'Accept-Language': 'zh-CN,zh;q=0.9'
-             }
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+             },
+             timeout: 15000
         });
+        console.log('[Get-H823-URL] Response status:', vRes.status, 'Length:', vRes.data.length);
+        
         const $v = cheerio.load(vRes.data);
         
+        // 检查是否有 video 标签
+        const videoTag = $v('video');
+        console.log('[Get-H823-URL] Video tags found:', videoTag.length);
+        
         const html = $v('video').parent().html() || '';
+        console.log('[Get-H823-URL] Video parent HTML length:', html.length);
+        
         const match = html.match(/strencode2\("([^"]+)"\)/);
         
         let videoUrl = null;
         if (match) {
+            console.log('[Get-H823-URL] Found strencode2 encoded data');
             const decoded = decodeURIComponent(match[1]);
+            console.log('[Get-H823-URL] Decoded length:', decoded.length);
             const srcMatch = decoded.match(/src='([^']+)'/);
-            if (srcMatch) videoUrl = srcMatch[1];
+            if (srcMatch) {
+                videoUrl = srcMatch[1];
+                console.log('[Get-H823-URL] Extracted URL from strencode2');
+            }
+        } else {
+            console.log('[Get-H823-URL] No strencode2 found, trying direct src');
         }
         
         if (!videoUrl) {
             videoUrl = $v('source').attr('src') || $v('video').attr('src');
+            if (videoUrl) {
+                console.log('[Get-H823-URL] Found direct src');
+            }
         }
+        
+        console.log('[Get-H823-URL] Result:', videoUrl ? videoUrl.substring(0, 60) + '...' : 'null');
         return videoUrl;
     } catch (e) {
         console.error(`[Get-H823-URL] Error: ${e.message}`);
+        if (e.response) {
+            console.error(`[Get-H823-URL] Response status: ${e.response.status}`);
+        }
         return null;
     }
 }
