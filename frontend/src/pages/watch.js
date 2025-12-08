@@ -39,9 +39,14 @@ export default function Watch() {
     return v.videoUrl;
   };
   
-  // 检测是否为 HLS 格式（基于原始 videoUrl）
+  // 检测是否为 HLS 格式
   const isHLSVideo = (v) => {
     if (!v || !v.videoUrl) return false;
+    // H823 视频都是 m3u8 格式
+    if (v.provider === 'H823' || (v.tags && v.tags.includes('H823'))) {
+      return true;
+    }
+    // 检查 URL 是否包含 m3u8
     return v.videoUrl.includes('.m3u8') || v.videoUrl.includes('m3u8');
   };
 
@@ -125,12 +130,16 @@ export default function Watch() {
         });
         
         hls.on(Hls.Events.ERROR, (event, data) => {
-          console.error('[HLS] Error:', data.type, data.details, data);
+          console.error('[HLS] Error:', data.type, data.details);
+          console.error('[HLS] Error data:', JSON.stringify(data, null, 2));
+          
           if (data.fatal) {
+            setVideoLoading(false);
             switch (data.type) {
               case Hls.ErrorTypes.NETWORK_ERROR:
                 console.log('[HLS] 网络错误，尝试恢复...');
-                hls.startLoad();
+                // 尝试恢复一次
+                setTimeout(() => hls.startLoad(), 1000);
                 break;
               case Hls.ErrorTypes.MEDIA_ERROR:
                 console.log('[HLS] 媒体错误，尝试恢复...');
@@ -138,7 +147,7 @@ export default function Watch() {
                 break;
               default:
                 console.error('[HLS] 致命错误，无法恢复');
-                setError('视频播放失败，请刷新重试');
+                setError(`视频播放失败: ${data.details || '未知错误'}`);
                 break;
             }
           }
@@ -293,7 +302,6 @@ export default function Watch() {
             controls 
             playsInline
             preload="auto"
-            crossOrigin="anonymous"
             poster={getThumbnailSrc(video.thumbnailUrl)} 
             style={{ maxHeight: '80vh', display: 'block', minHeight: '300px' }}
         />
