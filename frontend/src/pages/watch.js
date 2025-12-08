@@ -16,22 +16,30 @@ export default function Watch() {
   const hlsRef = useRef(null);
 
   // 辅助函数 - 获取视频源URL
-  const getVideoSrc = (v) => {
+  const getVideoSrc = (v, useProxy = false) => {
     if (!v || !v.videoUrl) return '';
     
-    // H823 来源需要代理
+    // 如果视频 URL 是 MP4，尝试直接播放（不使用代理）
+    // 因为 <video> 标签在无 crossorigin 时可以直接加载外部视频
+    const isMP4 = v.videoUrl.toLowerCase().includes('.mp4');
+    
+    if (isMP4 && !useProxy) {
+      // 直接返回原始 URL，让浏览器直接请求
+      console.log('[Video] 使用直接播放模式 (MP4)');
+      return v.videoUrl;
+    }
+    
+    // m3u8 或其他格式需要代理（因为需要重写 URL）
     if (v.provider === 'H823' || (v.tags && v.tags.includes('H823'))) {
       const referer = v.sourceUrl || 'https://h823.sol148.com/';
       return `${API_URL}/proxy?url=${encodeURIComponent(v.videoUrl)}&referer=${encodeURIComponent(referer)}`;
     }
     
-    // MG621 来源也需要代理
     if (v.provider === 'MG621' || (v.tags && v.tags.includes('MG621'))) {
       const referer = 'https://mg621.x5t5d5a4c.work/';
       return `${API_URL}/proxy?url=${encodeURIComponent(v.videoUrl)}&referer=${encodeURIComponent(referer)}`;
     }
     
-    // 外部 URL 通过代理
     if (v.videoUrl.startsWith('http')) {
       return `${API_URL}/proxy?url=${encodeURIComponent(v.videoUrl)}`;
     }

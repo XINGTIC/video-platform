@@ -197,14 +197,20 @@
             const proxyUrl = API_URL + '/proxy?url=' + encodeURIComponent(originalUrl) + '&referer=' + encodeURIComponent(referer);
             
             log('原始 URL: ' + originalUrl);
-            log('代理 URL: ' + proxyUrl);
             
             const isHLS = originalUrl.toLowerCase().includes('.m3u8') || originalUrl.toLowerCase().includes('m3u8');
-            log('是否 HLS: ' + isHLS + ' (URL包含m3u8: ' + originalUrl.includes('m3u8') + ')');
+            const isMP4 = originalUrl.toLowerCase().includes('.mp4');
+            log('是否 HLS: ' + isHLS);
+            log('是否 MP4: ' + isMP4);
+            
+            // MP4 直接播放，不使用代理
+            const finalUrl = isMP4 ? originalUrl : proxyUrl;
+            log('最终播放 URL: ' + (isMP4 ? '直接播放' : '通过代理'));
+            log('URL: ' + finalUrl.substring(0, 80) + '...');
             log('HLS.js 支持: ' + Hls.isSupported());
             
             if (isHLS) {
-                // HLS 格式
+                // HLS 格式 - 使用代理
                 if (Hls.isSupported()) {
                     log('使用 HLS.js 播放');
                     
@@ -241,18 +247,24 @@
                     log('浏览器不支持 HLS', true);
                 }
             } else {
-                // MP4 或其他格式 - 直接播放
-                log('使用直接播放 (MP4)');
-                video.src = proxyUrl;
+                // MP4 或其他格式 - 直接播放原始 URL（不使用代理）
+                log('使用直接播放模式 (MP4)');
+                log('设置视频源: ' + finalUrl.substring(0, 60) + '...');
+                video.src = finalUrl;
                 
                 video.onloadeddata = function() {
-                    log('视频数据已加载');
+                    log('视频数据已加载!');
                     setStatus('视频加载成功!', false);
                 };
                 
                 video.onerror = function(e) {
-                    log('视频加载错误: ' + (video.error ? video.error.message : '未知错误'), true);
-                    setStatus('视频加载失败', true);
+                    const errCode = video.error ? video.error.code : 'unknown';
+                    const errMsg = video.error ? video.error.message : '未知错误';
+                    log('视频加载错误: code=' + errCode + ', msg=' + errMsg, true);
+                    log('尝试使用代理模式...', false);
+                    // 如果直接播放失败，尝试使用代理
+                    video.src = proxyUrl;
+                    setStatus('尝试代理模式...', false);
                 };
                 
                 video.play().catch(function(e) { 
