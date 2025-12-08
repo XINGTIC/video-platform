@@ -158,31 +158,38 @@ router.get('/:id/stream', getUser, async (req, res) => {
       return res.status(401).json({ message: '请登录观看' });
     }
 
-    let videoUrl = video.videoUrl;
+    let videoUrl = null;
     let referer = 'https://h823.sol148.com/';
 
-    // 如果是 H823，实时获取最新的视频 URL
+    // 总是实时获取最新的视频 URL（因为旧 URL 可能已过期）
     if ((video.provider === 'H823' || (video.tags && video.tags.includes('H823'))) && video.sourceUrl) {
       try {
-        console.log('[Stream] Fetching fresh URL for:', video.title);
-        const newUrl = await getH823VideoUrl(video.sourceUrl);
-        if (newUrl) {
-          videoUrl = newUrl;
+        console.log('[Stream] Fetching fresh URL from:', video.sourceUrl);
+        videoUrl = await getH823VideoUrl(video.sourceUrl);
+        if (videoUrl) {
+          console.log('[Stream] Got fresh URL:', videoUrl.substring(0, 80) + '...');
           // 更新数据库
-          video.videoUrl = newUrl;
+          video.videoUrl = videoUrl;
           await video.save();
-          console.log('[Stream] Got fresh URL:', videoUrl.substring(0, 60) + '...');
+        } else {
+          console.error('[Stream] getH823VideoUrl returned null');
         }
       } catch (e) {
         console.error('[Stream] Failed to get fresh URL:', e.message);
       }
     }
 
+    // 如果无法获取新 URL，使用数据库中的旧 URL
+    if (!videoUrl) {
+      videoUrl = video.videoUrl;
+      console.log('[Stream] Using stored URL:', videoUrl ? videoUrl.substring(0, 80) + '...' : 'null');
+    }
+
     if (!videoUrl) {
       return res.status(404).json({ message: '视频URL不可用' });
     }
 
-    console.log('[Stream] Streaming video:', videoUrl.substring(0, 60) + '...');
+    console.log('[Stream] Starting stream for:', video.title);
 
     // 设置请求头
     const headers = {
@@ -196,6 +203,7 @@ router.get('/:id/stream', getUser, async (req, res) => {
     // 处理 Range 请求
     if (req.headers.range) {
       headers['Range'] = req.headers.range;
+      console.log('[Stream] Range request:', req.headers.range);
     }
 
     const response = await axios({
@@ -208,10 +216,13 @@ router.get('/:id/stream', getUser, async (req, res) => {
       httpsAgent: new https.Agent({ rejectUnauthorized: false })
     });
 
+    console.log('[Stream] Got response:', response.status, response.headers['content-type']);
+
     // 设置响应头
     res.setHeader('Content-Type', response.headers['content-type'] || 'video/mp4');
     res.setHeader('Accept-Ranges', 'bytes');
     res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cache-Control', 'no-cache');
     
     if (response.headers['content-length']) {
       res.setHeader('Content-Length', response.headers['content-length']);
@@ -225,7 +236,7 @@ router.get('/:id/stream', getUser, async (req, res) => {
     response.data.pipe(res);
 
     response.data.on('error', (err) => {
-      console.error('[Stream] Error:', err.message);
+      console.error('[Stream] Pipe error:', err.message);
       res.end();
     });
 
@@ -233,6 +244,7 @@ router.get('/:id/stream', getUser, async (req, res) => {
     console.error('[Stream] Request failed:', error.message);
     if (error.response) {
       console.error('[Stream] Response status:', error.response.status);
+      console.error('[Stream] Response headers:', JSON.stringify(error.response.headers));
     }
     res.status(500).json({ error: '视频流获取失败: ' + error.message });
   }
