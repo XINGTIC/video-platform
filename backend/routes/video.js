@@ -250,4 +250,38 @@ router.get('/:id/stream', getUser, async (req, res) => {
   }
 });
 
+// 调试端点 - 测试从源网站获取视频URL
+router.get('/:id/debug', async (req, res) => {
+  try {
+    const video = await Video.findById(req.params.id);
+    if (!video) return res.status(404).json({ message: '视频未找到' });
+
+    const result = {
+      videoId: video._id,
+      title: video.title,
+      provider: video.provider,
+      sourceUrl: video.sourceUrl,
+      storedVideoUrl: video.videoUrl,
+      newVideoUrl: null,
+      error: null
+    };
+
+    if (video.sourceUrl) {
+      try {
+        console.log('[Debug] Fetching URL from:', video.sourceUrl);
+        const newUrl = await getH823VideoUrl(video.sourceUrl);
+        result.newVideoUrl = newUrl;
+        console.log('[Debug] Got URL:', newUrl ? newUrl.substring(0, 80) + '...' : 'null');
+      } catch (e) {
+        result.error = e.message;
+        console.error('[Debug] Error:', e.message);
+      }
+    }
+
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;
