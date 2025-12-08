@@ -4,6 +4,16 @@ const axios = require('axios');
 const https = require('https');
 const urlModule = require('url');
 
+// 处理 OPTIONS 预检请求
+router.options('/', (req, res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Range, Accept, Accept-Encoding');
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges');
+    res.setHeader('Access-Control-Max-Age', '86400');
+    res.status(204).end();
+});
+
 router.get('/', async (req, res) => {
     const targetUrl = req.query.url;
     const range = req.headers.range;
@@ -66,10 +76,15 @@ router.get('/', async (req, res) => {
         if (!contentType || contentType === 'application/octet-stream') {
              if (targetUrl.includes('.mp4')) contentType = 'video/mp4';
              else if (targetUrl.includes('.m3u8')) contentType = 'application/vnd.apple.mpegurl';
+             else if (targetUrl.includes('.ts')) contentType = 'video/mp2t';
              else if (targetUrl.includes('.png')) contentType = 'image/png';
              else if (targetUrl.includes('.jpg') || targetUrl.includes('.jpeg')) contentType = 'image/jpeg';
              else if (targetUrl.includes('.gif')) contentType = 'image/gif';
+             else if (targetUrl.includes('.key')) contentType = 'application/octet-stream';
         }
+        
+        // 检测是否是 ts 分片文件
+        const isTsFile = targetUrl.includes('.ts') || (contentType && contentType.includes('video/mp2t'));
         
         // Handle m3u8 rewriting
         if (isM3u8Like || (contentType && (contentType.includes('mpegurl') || contentType.includes('m3u8')))) {
@@ -137,9 +152,16 @@ router.get('/', async (req, res) => {
         if (response.headers['content-length']) res.setHeader('Content-Length', response.headers['content-length']);
         if (contentType) res.setHeader('Content-Type', contentType);
         
-        res.setHeader('Cache-Control', 'public, max-age=86400');
+        // 设置缓存时间：ts 分片较短，m3u8 更短
+        if (isTsFile) {
+            res.setHeader('Cache-Control', 'public, max-age=3600');
+        } else {
+            res.setHeader('Cache-Control', 'public, max-age=86400');
+        }
         res.setHeader('Accept-Ranges', 'bytes');
-        res.setHeader('Access-Control-Allow-Origin', '*'); 
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+        res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges');
         
         response.data.pipe(res);
 

@@ -20,8 +20,14 @@ const app = express();
 // Trust Proxy for Render/Cloudflare (Required for correct req.protocol and req.ip)
 app.set('trust proxy', 1);
 
-// Middleware
-app.use(cors());
+// Middleware - Enhanced CORS for HLS streaming
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Range', 'Accept', 'Accept-Encoding'],
+  exposedHeaders: ['Content-Length', 'Content-Range', 'Accept-Ranges'],
+  credentials: false
+}));
 app.use(express.json());
 
 // Request Logger

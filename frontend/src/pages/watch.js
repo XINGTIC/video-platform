@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
+import Hls from 'hls.js';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://video-platform-3v33.onrender.com/api';
 
@@ -10,6 +11,48 @@ export default function Watch() {
   const { id } = router.query;
   const [video, setVideo] = useState(null);
   const [error, setError] = useState(null);
+  const [videoLoading, setVideoLoading] = useState(true);
+  const videoRef = useRef(null);
+  const hlsRef = useRef(null);
+
+  // 辅助函数 - 获取视频源URL
+  const getVideoSrc = (v) => {
+    if (!v || !v.videoUrl) return '';
+    
+    // H823 来源需要代理
+    if (v.provider === 'H823' || (v.tags && v.tags.includes('H823'))) {
+      const referer = v.sourceUrl || 'https://h823.sol148.com/';
+      return `${API_URL}/proxy?url=${encodeURIComponent(v.videoUrl)}&referer=${encodeURIComponent(referer)}`;
+    }
+    
+    // MG621 来源也需要代理
+    if (v.provider === 'MG621' || (v.tags && v.tags.includes('MG621'))) {
+      const referer = 'https://mg621.x5t5d5a4c.work/';
+      return `${API_URL}/proxy?url=${encodeURIComponent(v.videoUrl)}&referer=${encodeURIComponent(referer)}`;
+    }
+    
+    // 外部 URL 通过代理
+    if (v.videoUrl.startsWith('http')) {
+      return `${API_URL}/proxy?url=${encodeURIComponent(v.videoUrl)}`;
+    }
+    
+    return v.videoUrl;
+  };
+  
+  // 检测是否为 HLS 格式（基于原始 videoUrl）
+  const isHLSVideo = (v) => {
+    if (!v || !v.videoUrl) return false;
+    return v.videoUrl.includes('.m3u8') || v.videoUrl.includes('m3u8');
+  };
+
+  // 辅助函数 - 获取缩略图URL
+  const getThumbnailSrc = (url) => {
+    if (!url) return '';
+    if (url.startsWith('http')) {
+      return `${API_URL}/proxy?url=${encodeURIComponent(url)}&referer=${encodeURIComponent('https://h823.sol148.com/')}`;
+    }
+    return url;
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -33,6 +76,109 @@ export default function Watch() {
       }
     });
   }, [id]);
+
+  // HLS 播放器初始化
+  useEffect(() => {
+    if (!video || !videoRef.current) return;
+
+    const videoSrc = getVideoSrc(video);
+    const videoElement = videoRef.current;
+
+    console.log('[Video] 视频源:', videoSrc);
+    console.log('[Video] 原始URL:', video.videoUrl);
+    console.log('[Video] Provider:', video.provider);
+
+    // 清理之前的 HLS 实例
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+
+    // 检测是否为 m3u8 格式（基于原始 videoUrl）
+    const isHLS = isHLSVideo(video);
+    console.log('[Video] 是否HLS:', isHLS);
+
+    if (isHLS) {
+      if (Hls.isSupported()) {
+        console.log('[Video] 使用 HLS.js 播放');
+        // 使用 hls.js 播放
+        const hls = new Hls({
+          enableWorker: true,
+          lowLatencyMode: false,
+          backBufferLength: 90,
+          maxBufferLength: 30,
+          maxMaxBufferLength: 600,
+          startLevel: -1,
+          debug: false,
+        });
+        hlsRef.current = hls;
+        
+        hls.loadSource(videoSrc);
+        hls.attachMedia(videoElement);
+        
+        hls.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
+          console.log('[HLS] Manifest 解析成功, 质量级别:', data.levels.length);
+          setVideoLoading(false);
+          videoElement.play().catch((e) => {
+            console.log('[Video] 自动播放被阻止:', e.message);
+          });
+        });
+        
+        hls.on(Hls.Events.ERROR, (event, data) => {
+          console.error('[HLS] Error:', data.type, data.details, data);
+          if (data.fatal) {
+            switch (data.type) {
+              case Hls.ErrorTypes.NETWORK_ERROR:
+                console.log('[HLS] 网络错误，尝试恢复...');
+                hls.startLoad();
+                break;
+              case Hls.ErrorTypes.MEDIA_ERROR:
+                console.log('[HLS] 媒体错误，尝试恢复...');
+                hls.recoverMediaError();
+                break;
+              default:
+                console.error('[HLS] 致命错误，无法恢复');
+                setError('视频播放失败，请刷新重试');
+                break;
+            }
+          }
+        });
+      } else if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
+        // Safari 原生支持 HLS
+        console.log('[Video] Safari 原生 HLS 播放');
+        videoElement.src = videoSrc;
+        videoElement.play().catch(() => {});
+      } else {
+        setError('您的浏览器不支持播放此视频格式');
+      }
+    } else {
+      // 普通 MP4 等格式，直接播放
+      console.log('[Video] 直接播放 MP4/其他格式');
+      videoElement.src = videoSrc;
+      
+      videoElement.onloadeddata = () => {
+        setVideoLoading(false);
+      };
+      
+      videoElement.onerror = (e) => {
+        console.error('[Video] 加载错误:', e);
+        setVideoLoading(false);
+        setError('视频加载失败，请刷新重试');
+      };
+      
+      videoElement.play().catch((e) => {
+        console.log('[Video] 自动播放被阻止:', e.message);
+      });
+    }
+
+    // 清理函数
+    return () => {
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+    };
+  }, [video]);
 
   const handlePayment = async () => {
     const tx = prompt('请输入您的 USDT 交易哈希 (0x...):');
@@ -86,25 +232,6 @@ export default function Watch() {
 
   if (!video) return <div className="container">加载中...</div>;
 
-  const getVideoSrc = (v) => {
-    if (v.provider === 'H823' || (v.tags && v.tags.includes('H823'))) {
-        // Use sourceUrl as referer if available, otherwise fallback to root domain
-        const referer = v.sourceUrl || 'https://h823.sol148.com/';
-        return `${API_URL}/proxy?url=${encodeURIComponent(v.videoUrl)}&referer=${encodeURIComponent(referer)}`;
-    }
-    return v.videoUrl;
-  };
-
-  const getThumbnailSrc = (url) => {
-    if (!url) return '';
-    if (url.startsWith('http')) {
-        // Use generic referer for images as we might not have sourceUrl handy in all contexts (though here we do via video object, but this function is generic)
-        // Better to just use root domain for images
-        return `${API_URL}/proxy?url=${encodeURIComponent(url)}&referer=${encodeURIComponent('https://h823.sol148.com/')}`;
-    }
-    return url;
-  };
-
   const handleShare = (platform) => {
     const url = window.location.href;
     const text = `Check out this video: ${video.title}`;
@@ -144,17 +271,31 @@ export default function Watch() {
       </Head>
       <h1>{video.title}</h1>
       
-      <div style={{ maxWidth: '900px', margin: '0 auto', background: '#000', borderRadius: '8px', overflow: 'hidden' }}>
+      <div style={{ maxWidth: '900px', margin: '0 auto', background: '#000', borderRadius: '8px', overflow: 'hidden', position: 'relative' }}>
+        {videoLoading && (
+          <div style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            color: 'white',
+            zIndex: 10,
+            textAlign: 'center'
+          }}>
+            <div style={{ fontSize: '24px', marginBottom: '10px' }}>⏳</div>
+            <div>视频加载中...</div>
+          </div>
+        )}
         <video 
+            ref={videoRef}
             width="100%" 
             height="auto" 
             controls 
-            autoPlay
             playsInline
-            preload="metadata"
-            src={getVideoSrc(video)} 
+            preload="auto"
+            crossOrigin="anonymous"
             poster={getThumbnailSrc(video.thumbnailUrl)} 
-            style={{ maxHeight: '80vh', display: 'block' }}
+            style={{ maxHeight: '80vh', display: 'block', minHeight: '300px' }}
         />
       </div>
       
