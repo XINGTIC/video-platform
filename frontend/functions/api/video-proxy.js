@@ -44,15 +44,26 @@ export async function onRequest(context) {
       const response = await fetch(targetUrl, { headers });
       const html = await response.text();
       
+      const debug = {
+        status: response.status,
+        htmlLength: html.length,
+        hasVideoTag: html.includes('<video'),
+        hasStrencode2: html.includes('strencode2')
+      };
+      
       // Extract video URL
       let videoUrl = null;
       
       // Method 1: strencode2
       const match = html.match(/strencode2\("([^"]+)"\)/);
       if (match) {
-        const decoded = decodeURIComponent(match[1]);
-        const srcMatch = decoded.match(/src='([^']+)'/);
-        if (srcMatch) videoUrl = srcMatch[1];
+        try {
+          const decoded = decodeURIComponent(match[1]);
+          const srcMatch = decoded.match(/src='([^']+)'/);
+          if (srcMatch) videoUrl = srcMatch[1];
+        } catch (e) {
+          debug.decodeError = e.message;
+        }
       }
       
       // Method 2: direct src
@@ -64,7 +75,8 @@ export async function onRequest(context) {
       
       return new Response(JSON.stringify({ 
         success: !!videoUrl,
-        videoUrl: videoUrl 
+        videoUrl: videoUrl,
+        debug: debug
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
