@@ -167,48 +167,61 @@
             log('是否 HLS: ' + isHLS + ' (URL包含m3u8: ' + originalUrl.includes('m3u8') + ')');
             log('HLS.js 支持: ' + Hls.isSupported());
             
-            if (isHLS && Hls.isSupported()) {
-                log('使用 HLS.js 播放');
-                
-                const hls = new Hls({
-                    debug: false,
-                    enableWorker: true,
-                    xhrSetup: function(xhr) {
-                        log('HLS 请求: ' + xhr.url);
-                    }
-                });
-                
-                hls.on(Hls.Events.MANIFEST_PARSED, function(event, data) {
-                    log('HLS Manifest 解析成功! 级别数: ' + data.levels.length);
-                    setStatus('视频加载成功!', false);
-                    video.play().catch(function(e) {
-                        log('自动播放被阻止: ' + e.message);
+            if (isHLS) {
+                // HLS 格式
+                if (Hls.isSupported()) {
+                    log('使用 HLS.js 播放');
+                    
+                    const hls = new Hls({
+                        debug: false,
+                        enableWorker: true
                     });
-                });
-                
-                hls.on(Hls.Events.ERROR, function(event, data) {
-                    log('HLS 错误: ' + data.type + ' - ' + data.details, true);
-                    if (data.response) {
-                        log('响应码: ' + data.response.code, true);
-                    }
-                    if (data.fatal) {
-                        log('致命错误! 视频无法播放', true);
-                        setStatus('视频加载失败: ' + data.details, true);
-                    }
-                });
-                
-                hls.loadSource(proxyUrl);
-                hls.attachMedia(video);
-                log('HLS 已附加到视频元素');
-                
-            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                log('使用 Safari 原生 HLS');
-                video.src = proxyUrl;
-                video.play().catch(function(e) { log('播放错误: ' + e.message, true); });
+                    
+                    hls.on(Hls.Events.MANIFEST_PARSED, function(event, data) {
+                        log('HLS Manifest 解析成功! 级别数: ' + data.levels.length);
+                        setStatus('视频加载成功!', false);
+                        video.play().catch(function(e) {
+                            log('自动播放被阻止: ' + e.message);
+                        });
+                    });
+                    
+                    hls.on(Hls.Events.ERROR, function(event, data) {
+                        log('HLS 错误: ' + data.type + ' - ' + data.details, true);
+                        if (data.fatal) {
+                            log('致命错误! 视频无法播放', true);
+                            setStatus('视频加载失败: ' + data.details, true);
+                        }
+                    });
+                    
+                    hls.loadSource(proxyUrl);
+                    hls.attachMedia(video);
+                    log('HLS 已附加到视频元素');
+                    
+                } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                    log('使用 Safari 原生 HLS');
+                    video.src = proxyUrl;
+                    video.play().catch(function(e) { log('播放错误: ' + e.message, true); });
+                } else {
+                    log('浏览器不支持 HLS', true);
+                }
             } else {
-                log('直接设置视频源');
+                // MP4 或其他格式 - 直接播放
+                log('使用直接播放 (MP4)');
                 video.src = proxyUrl;
-                video.play().catch(function(e) { log('播放错误: ' + e.message, true); });
+                
+                video.onloadeddata = function() {
+                    log('视频数据已加载');
+                    setStatus('视频加载成功!', false);
+                };
+                
+                video.onerror = function(e) {
+                    log('视频加载错误: ' + (video.error ? video.error.message : '未知错误'), true);
+                    setStatus('视频加载失败', true);
+                };
+                
+                video.play().catch(function(e) { 
+                    log('自动播放被阻止: ' + e.message); 
+                });
             }
         }
         
