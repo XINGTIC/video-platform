@@ -39,15 +39,12 @@ export default function Watch() {
     return v.videoUrl;
   };
   
-  // 检测是否为 HLS 格式
+  // 检测是否为 HLS 格式（基于实际 URL，不是 provider）
   const isHLSVideo = (v) => {
     if (!v || !v.videoUrl) return false;
-    // H823 视频都是 m3u8 格式
-    if (v.provider === 'H823' || (v.tags && v.tags.includes('H823'))) {
-      return true;
-    }
-    // 检查 URL 是否包含 m3u8
-    return v.videoUrl.includes('.m3u8') || v.videoUrl.includes('m3u8');
+    const url = v.videoUrl.toLowerCase();
+    // 只有 URL 中包含 m3u8 才是 HLS 格式
+    return url.includes('.m3u8') || url.includes('m3u8');
   };
 
   // 辅助函数 - 获取缩略图URL

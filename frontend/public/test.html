@@ -163,8 +163,8 @@
             log('原始 URL: ' + originalUrl);
             log('代理 URL: ' + proxyUrl);
             
-            const isHLS = originalUrl.includes('.m3u8') || videoData.provider === 'H823';
-            log('是否 HLS: ' + isHLS);
+            const isHLS = originalUrl.toLowerCase().includes('.m3u8') || originalUrl.toLowerCase().includes('m3u8');
+            log('是否 HLS: ' + isHLS + ' (URL包含m3u8: ' + originalUrl.includes('m3u8') + ')');
             log('HLS.js 支持: ' + Hls.isSupported());
             
             if (isHLS && Hls.isSupported()) {
