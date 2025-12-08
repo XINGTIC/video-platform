@@ -3,147 +3,224 @@
 <head>
     <title>Video Test</title>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; font-size: 16px; }
+        pre { background: #f0f0f0; padding: 15px; overflow: auto; max-height: 300px; white-space: pre-wrap; word-wrap: break-word; }
+        .error { color: red; }
+        .success { color: green; }
+        #video { background: #000; }
+    </style>
 </head>
 <body>
-    <h1>Video Debug Test</h1>
+    <h1>视频调试测试</h1>
     
-    <div id="status">Loading...</div>
+    <div id="status" style="padding:10px;background:#ffffcc;margin-bottom:20px;">正在初始化...</div>
     
-    <h2>1. API Test</h2>
-    <button onclick="testAPI()">Test API</button>
-    <pre id="apiResult"></pre>
+    <h2>1. API 测试</h2>
+    <button id="btnTestAPI">测试 API</button>
+    <button id="btnTestProxy">测试代理</button>
+    <pre id="apiResult">点击按钮开始测试</pre>
     
-    <h2>2. Video Player</h2>
-    <video id="video" width="640" height="360" controls style="background:#000;"></video>
-    <br>
-    <button onclick="loadVideo()">Load Video</button>
+    <h2>2. 视频播放器</h2>
+    <video id="video" width="640" height="360" controls></video>
+    <br><br>
+    <button id="btnLoadVideo">加载视频</button>
     
-    <h2>3. Logs</h2>
-    <pre id="logs" style="background:#f0f0f0;padding:10px;max-height:400px;overflow:auto;"></pre>
+    <h2>3. 日志</h2>
+    <pre id="logs"></pre>
 
     <script>
         const API_URL = 'https://video-platform-3v33.onrender.com/api';
         let videoData = null;
         
-        function log(msg) {
+        function log(msg, isError) {
             const logs = document.getElementById('logs');
-            logs.textContent += new Date().toISOString().substr(11,8) + ' ' + msg + '\n';
+            const time = new Date().toISOString().substr(11,8);
+            const line = document.createElement('div');
+            line.textContent = time + ' ' + msg;
+            if (isError) line.className = 'error';
+            logs.appendChild(line);
             logs.scrollTop = logs.scrollHeight;
             console.log(msg);
         }
         
+        function setStatus(msg, isError) {
+            const status = document.getElementById('status');
+            status.textContent = msg;
+            status.style.background = isError ? '#ffcccc' : '#ccffcc';
+        }
+        
         async function testAPI() {
-            log('Testing API...');
+            log('=== 开始 API 测试 ===');
+            const result = document.getElementById('apiResult');
+            result.textContent = '测试中...';
+            
             try {
-                // Get video list
+                // 1. Test health
+                log('检查后端健康状态...');
+                const healthRes = await fetch(API_URL + '/health');
+                const healthData = await healthRes.json();
+                log('后端状态: ' + JSON.stringify(healthData));
+                
+                // 2. Get video list
+                log('获取视频列表...');
                 const listRes = await fetch(API_URL + '/videos?limit=1');
                 const listData = await listRes.json();
-                log('Video list: ' + JSON.stringify(listData, null, 2));
+                log('视频数量: ' + listData.totalVideos);
                 
-                if (listData.videos && listData.videos.length > 0) {
-                    const videoId = listData.videos[0]._id;
-                    log('Found video ID: ' + videoId);
-                    
-                    // Get token from localStorage
-                    const token = localStorage.getItem('token');
-                    log('Token exists: ' + !!token);
-                    
-                    if (token) {
-                        // Get video details
-                        const detailRes = await fetch(API_URL + '/videos/' + videoId, {
-                            headers: { Authorization: 'Bearer ' + token }
-                        });
-                        
-                        if (detailRes.ok) {
-                            videoData = await detailRes.json();
-                            log('Video data: ' + JSON.stringify(videoData, null, 2));
-                            document.getElementById('apiResult').textContent = JSON.stringify(videoData, null, 2);
-                        } else {
-                            const errText = await detailRes.text();
-                            log('Error getting video: ' + detailRes.status + ' ' + errText);
-                        }
-                    } else {
-                        log('No token - please login first at /login');
-                    }
+                if (!listData.videos || listData.videos.length === 0) {
+                    log('没有找到视频!', true);
+                    result.textContent = '数据库中没有视频';
+                    return;
+                }
+                
+                const videoId = listData.videos[0]._id;
+                log('视频 ID: ' + videoId);
+                
+                // 3. Check token
+                const token = localStorage.getItem('token');
+                log('Token 存在: ' + (token ? '是' : '否'));
+                
+                if (!token) {
+                    log('请先登录! 访问 /login 页面登录', true);
+                    setStatus('请先登录!', true);
+                    result.textContent = '未登录 - 请先访问 /login 登录';
+                    return;
+                }
+                
+                // 4. Get video details
+                log('获取视频详情...');
+                const detailRes = await fetch(API_URL + '/videos/' + videoId, {
+                    headers: { Authorization: 'Bearer ' + token }
+                });
+                
+                if (!detailRes.ok) {
+                    const errText = await detailRes.text();
+                    log('获取视频失败: ' + detailRes.status + ' ' + errText, true);
+                    result.textContent = '错误 ' + detailRes.status + ': ' + errText;
+                    return;
+                }
+                
+                videoData = await detailRes.json();
+                log('视频标题: ' + videoData.title);
+                log('视频 URL: ' + videoData.videoUrl);
+                log('来源 URL: ' + videoData.sourceUrl);
+                log('Provider: ' + videoData.provider);
+                
+                result.textContent = JSON.stringify(videoData, null, 2);
+                setStatus('API 测试成功! 点击"加载视频"播放', false);
+                
+            } catch (e) {
+                log('API 错误: ' + e.message, true);
+                result.textContent = '错误: ' + e.message;
+                setStatus('API 测试失败', true);
+            }
+        }
+        
+        async function testProxy() {
+            if (!videoData || !videoData.videoUrl) {
+                log('请先运行 API 测试', true);
+                return;
+            }
+            
+            log('=== 测试代理 ===');
+            const proxyUrl = API_URL + '/proxy?url=' + encodeURIComponent(videoData.videoUrl) + '&referer=' + encodeURIComponent('https://h823.sol148.com/');
+            log('代理 URL: ' + proxyUrl);
+            
+            try {
+                const res = await fetch(proxyUrl);
+                log('代理状态: ' + res.status);
+                log('Content-Type: ' + res.headers.get('content-type'));
+                
+                const text = await res.text();
+                log('响应长度: ' + text.length + ' 字符');
+                log('响应内容 (前200字符): ' + text.substring(0, 200));
+                
+                if (text.includes('#EXTM3U')) {
+                    log('检测到有效的 M3U8 播放列表!', false);
+                } else if (text.includes('error') || text.includes('Error')) {
+                    log('代理返回错误!', true);
                 }
             } catch (e) {
-                log('API Error: ' + e.message);
+                log('代理错误: ' + e.message, true);
             }
         }
         
         function loadVideo() {
             if (!videoData || !videoData.videoUrl) {
-                log('No video data - run API test first');
+                log('请先运行 API 测试', true);
+                alert('请先点击"测试 API"按钮');
                 return;
             }
             
+            log('=== 加载视频 ===');
             const video = document.getElementById('video');
             const originalUrl = videoData.videoUrl;
             const referer = videoData.sourceUrl || 'https://h823.sol148.com/';
             const proxyUrl = API_URL + '/proxy?url=' + encodeURIComponent(originalUrl) + '&referer=' + encodeURIComponent(referer);
             
-            log('Original URL: ' + originalUrl);
-            log('Proxy URL: ' + proxyUrl);
-            log('Provider: ' + videoData.provider);
+            log('原始 URL: ' + originalUrl);
+            log('代理 URL: ' + proxyUrl);
             
             const isHLS = originalUrl.includes('.m3u8') || videoData.provider === 'H823';
-            log('Is HLS: ' + isHLS);
+            log('是否 HLS: ' + isHLS);
+            log('HLS.js 支持: ' + Hls.isSupported());
             
             if (isHLS && Hls.isSupported()) {
-                log('Using HLS.js');
+                log('使用 HLS.js 播放');
+                
                 const hls = new Hls({
-                    debug: true,
-                    enableWorker: true
+                    debug: false,
+                    enableWorker: true,
+                    xhrSetup: function(xhr) {
+                        log('HLS 请求: ' + xhr.url);
+                    }
                 });
                 
-                hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                    log('HLS: Manifest parsed successfully!');
-                    video.play().catch(e => log('Play error: ' + e.message));
+                hls.on(Hls.Events.MANIFEST_PARSED, function(event, data) {
+                    log('HLS Manifest 解析成功! 级别数: ' + data.levels.length);
+                    setStatus('视频加载成功!', false);
+                    video.play().catch(function(e) {
+                        log('自动播放被阻止: ' + e.message);
+                    });
                 });
                 
-                hls.on(Hls.Events.ERROR, (event, data) => {
-                    log('HLS Error: ' + data.type + ' - ' + data.details);
+                hls.on(Hls.Events.ERROR, function(event, data) {
+                    log('HLS 错误: ' + data.type + ' - ' + data.details, true);
                     if (data.response) {
-                        log('Response status: ' + data.response.code);
+                        log('响应码: ' + data.response.code, true);
                     }
                     if (data.fatal) {
-                        log('FATAL ERROR!');
+                        log('致命错误! 视频无法播放', true);
+                        setStatus('视频加载失败: ' + data.details, true);
                     }
                 });
                 
                 hls.loadSource(proxyUrl);
                 hls.attachMedia(video);
+                log('HLS 已附加到视频元素');
+                
             } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                log('Using native HLS (Safari)');
+                log('使用 Safari 原生 HLS');
                 video.src = proxyUrl;
+                video.play().catch(function(e) { log('播放错误: ' + e.message, true); });
             } else {
-                log('Using direct video src');
+                log('直接设置视频源');
                 video.src = proxyUrl;
+                video.play().catch(function(e) { log('播放错误: ' + e.message, true); });
             }
         }
         
-        // Test proxy directly
-        async function testProxy() {
-            if (!videoData || !videoData.videoUrl) {
-                log('No video data');
-                return;
-            }
-            
-            const proxyUrl = API_URL + '/proxy?url=' + encodeURIComponent(videoData.videoUrl) + '&referer=' + encodeURIComponent('https://h823.sol148.com/');
-            log('Testing proxy: ' + proxyUrl);
-            
-            try {
-                const res = await fetch(proxyUrl);
-                log('Proxy status: ' + res.status);
-                log('Content-Type: ' + res.headers.get('content-type'));
-                const text = await res.text();
-                log('Response (first 500 chars): ' + text.substring(0, 500));
-            } catch (e) {
-                log('Proxy error: ' + e.message);
-            }
-        }
+        // Bind events
+        document.getElementById('btnTestAPI').onclick = testAPI;
+        document.getElementById('btnTestProxy').onclick = testProxy;
+        document.getElementById('btnLoadVideo').onclick = loadVideo;
         
-        document.getElementById('status').textContent = 'Ready. Click "Test API" first.';
+        // Auto init
+        setStatus('准备就绪。请点击"测试 API"开始。', false);
+        log('页面加载完成');
+        log('API URL: ' + API_URL);
     </script>
 </body>
 </html>
