@@ -184,7 +184,7 @@
         }
         
         function loadVideo() {
-            if (!videoData || !videoData.videoUrl) {
+            if (!videoData || !videoData._id) {
                 log('请先运行 API 测试', true);
                 alert('请先点击"测试 API"按钮');
                 return;
@@ -192,79 +192,55 @@
             
             log('=== 加载视频 ===');
             const video = document.getElementById('video');
-            const originalUrl = videoData.videoUrl;
-            const referer = videoData.sourceUrl || 'https://h823.sol148.com/';
-            const proxyUrl = API_URL + '/proxy?url=' + encodeURIComponent(originalUrl) + '&referer=' + encodeURIComponent(referer);
+            const token = localStorage.getItem('token');
             
-            log('原始 URL: ' + originalUrl);
+            // 使用新的实时流式代理端点
+            const streamUrl = API_URL + '/videos/' + videoData._id + '/stream?token=' + token;
             
-            const isHLS = originalUrl.toLowerCase().includes('.m3u8') || originalUrl.toLowerCase().includes('m3u8');
-            const isMP4 = originalUrl.toLowerCase().includes('.mp4');
-            log('是否 HLS: ' + isHLS);
-            log('是否 MP4: ' + isMP4);
+            log('视频 ID: ' + videoData._id);
+            log('流式代理 URL: ' + streamUrl.substring(0, 80) + '...');
             
-            // MP4 直接播放，不使用代理
-            const finalUrl = isMP4 ? originalUrl : proxyUrl;
-            log('最终播放 URL: ' + (isMP4 ? '直接播放' : '通过代理'));
-            log('URL: ' + finalUrl.substring(0, 80) + '...');
-            log('HLS.js 支持: ' + Hls.isSupported());
+            const originalUrl = videoData.videoUrl || '';
+            const isHLS = originalUrl.toLowerCase().includes('.m3u8');
+            log('原始格式: ' + (isHLS ? 'HLS' : 'MP4'));
             
-            if (isHLS) {
-                // HLS 格式 - 使用代理
-                if (Hls.isSupported()) {
-                    log('使用 HLS.js 播放');
-                    
-                    const hls = new Hls({
-                        debug: false,
-                        enableWorker: true
-                    });
-                    
-                    hls.on(Hls.Events.MANIFEST_PARSED, function(event, data) {
-                        log('HLS Manifest 解析成功! 级别数: ' + data.levels.length);
-                        setStatus('视频加载成功!', false);
-                        video.play().catch(function(e) {
-                            log('自动播放被阻止: ' + e.message);
-                        });
-                    });
-                    
-                    hls.on(Hls.Events.ERROR, function(event, data) {
-                        log('HLS 错误: ' + data.type + ' - ' + data.details, true);
-                        if (data.fatal) {
-                            log('致命错误! 视频无法播放', true);
-                            setStatus('视频加载失败: ' + data.details, true);
-                        }
-                    });
-                    
-                    hls.loadSource(proxyUrl);
-                    hls.attachMedia(video);
-                    log('HLS 已附加到视频元素');
-                    
-                } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                    log('使用 Safari 原生 HLS');
-                    video.src = proxyUrl;
-                    video.play().catch(function(e) { log('播放错误: ' + e.message, true); });
-                } else {
-                    log('浏览器不支持 HLS', true);
-                }
+            if (isHLS && Hls.isSupported()) {
+                // HLS 格式
+                log('使用 HLS.js 播放');
+                const hls = new Hls({ debug: false, enableWorker: true });
+                
+                hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                    log('HLS Manifest 解析成功!');
+                    setStatus('视频加载成功!', false);
+                    video.play().catch(function(e) { log('自动播放被阻止: ' + e.message); });
+                });
+                
+                hls.on(Hls.Events.ERROR, function(event, data) {
+                    log('HLS 错误: ' + data.details, true);
+                    if (data.fatal) setStatus('视频加载失败', true);
+                });
+                
+                hls.loadSource(streamUrl);
+                hls.attachMedia(video);
             } else {
-                // MP4 或其他格式 - 直接播放原始 URL（不使用代理）
-                log('使用直接播放模式 (MP4)');
-                log('设置视频源: ' + finalUrl.substring(0, 60) + '...');
-                video.src = finalUrl;
+                // MP4 格式 - 使用流式代理
+                log('使用流式代理播放 (MP4)');
+                video.src = streamUrl;
                 
                 video.onloadeddata = function() {
                     log('视频数据已加载!');
                     setStatus('视频加载成功!', false);
                 };
                 
+                video.oncanplay = function() {
+                    log('视频可以播放了!');
+                };
+                
                 video.onerror = function(e) {
                     const errCode = video.error ? video.error.code : 'unknown';
                     const errMsg = video.error ? video.error.message : '未知错误';
                     log('视频加载错误: code=' + errCode + ', msg=' + errMsg, true);
-                    log('尝试使用代理模式...', false);
-                    // 如果直接播放失败，尝试使用代理
-                    video.src = proxyUrl;
-                    setStatus('尝试代理模式...', false);
+                    setStatus('视频加载失败: ' + errMsg, true);
                 };
                 
                 video.play().catch(function(e) { 

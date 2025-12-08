@@ -3,18 +3,26 @@ const router = express.Router();
 const Video = require('../models/Video');
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
+const axios = require('axios');
+const https = require('https');
 const { getH823VideoUrl } = require('./sync');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'secret_key';
 
 // Middleware to extract user (optional)
 const getUser = (req, res, next) => {
-  const token = req.headers.authorization?.split(' ')[1];
+  // 支持从 header 或 query 参数获取 token
+  let token = req.headers.authorization?.split(' ')[1];
+  if (!token && req.query.token) {
+    token = req.query.token;
+  }
   if (token) {
     try {
       const decoded = jwt.verify(token, JWT_SECRET);
       req.user = decoded;
-    } catch (e) {}
+    } catch (e) {
+      console.log('[Auth] Token verification failed:', e.message);
+    }
   }
   next();
 };
@@ -136,6 +144,97 @@ router.post('/', getUser, async (req, res) => {
     res.json(video);
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// 实时流式代理 - 获取最新URL并直接转发视频流
+router.get('/:id/stream', getUser, async (req, res) => {
+  try {
+    const video = await Video.findById(req.params.id);
+    if (!video) return res.status(404).json({ message: '视频未找到' });
+
+    // 验证用户权限
+    if (!req.user) {
+      return res.status(401).json({ message: '请登录观看' });
+    }
+
+    let videoUrl = video.videoUrl;
+    let referer = 'https://h823.sol148.com/';
+
+    // 如果是 H823，实时获取最新的视频 URL
+    if ((video.provider === 'H823' || (video.tags && video.tags.includes('H823'))) && video.sourceUrl) {
+      try {
+        console.log('[Stream] Fetching fresh URL for:', video.title);
+        const newUrl = await getH823VideoUrl(video.sourceUrl);
+        if (newUrl) {
+          videoUrl = newUrl;
+          // 更新数据库
+          video.videoUrl = newUrl;
+          await video.save();
+          console.log('[Stream] Got fresh URL:', videoUrl.substring(0, 60) + '...');
+        }
+      } catch (e) {
+        console.error('[Stream] Failed to get fresh URL:', e.message);
+      }
+    }
+
+    if (!videoUrl) {
+      return res.status(404).json({ message: '视频URL不可用' });
+    }
+
+    console.log('[Stream] Streaming video:', videoUrl.substring(0, 60) + '...');
+
+    // 设置请求头
+    const headers = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept': '*/*',
+      'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+      'Referer': referer,
+      'Origin': 'https://h823.sol148.com',
+    };
+
+    // 处理 Range 请求
+    if (req.headers.range) {
+      headers['Range'] = req.headers.range;
+    }
+
+    const response = await axios({
+      url: videoUrl,
+      method: 'GET',
+      responseType: 'stream',
+      headers: headers,
+      timeout: 60000,
+      maxRedirects: 5,
+      httpsAgent: new https.Agent({ rejectUnauthorized: false })
+    });
+
+    // 设置响应头
+    res.setHeader('Content-Type', response.headers['content-type'] || 'video/mp4');
+    res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    
+    if (response.headers['content-length']) {
+      res.setHeader('Content-Length', response.headers['content-length']);
+    }
+    if (response.headers['content-range']) {
+      res.status(206);
+      res.setHeader('Content-Range', response.headers['content-range']);
+    }
+
+    // 流式转发
+    response.data.pipe(res);
+
+    response.data.on('error', (err) => {
+      console.error('[Stream] Error:', err.message);
+      res.end();
+    });
+
+  } catch (error) {
+    console.error('[Stream] Request failed:', error.message);
+    if (error.response) {
+      console.error('[Stream] Response status:', error.response.status);
+    }
+    res.status(500).json({ error: '视频流获取失败: ' + error.message });
   }
 });
 
