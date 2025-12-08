@@ -23,6 +23,8 @@ router.get('/', async (req, res) => {
         return res.status(400).send('Missing url parameter');
     }
 
+    console.log('[Proxy] Request for:', targetUrl.substring(0, 100) + '...');
+
     try {
         let referer = '';
         let origin = '';
@@ -171,7 +173,19 @@ router.get('/', async (req, res) => {
         });
     } catch (err) {
         console.error('[Proxy] Request Error:', err.message);
-        res.status(500).send('Proxy request failed');
+        console.error('[Proxy] Target URL:', targetUrl);
+        console.error('[Proxy] Error details:', err.response ? err.response.status : 'No response');
+        
+        // Return more specific error
+        if (err.code === 'ECONNREFUSED') {
+            res.status(502).send('Target server refused connection');
+        } else if (err.code === 'ETIMEDOUT' || err.code === 'ECONNABORTED') {
+            res.status(504).send('Target server timeout');
+        } else if (err.response) {
+            res.status(err.response.status).send('Target server error: ' + err.response.status);
+        } else {
+            res.status(500).send('Proxy request failed: ' + err.message);
+        }
     }
 });
 
