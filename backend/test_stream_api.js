@@ -4,54 +4,53 @@ const API = 'https://video-platform-3v33.onrender.com/api';
 
 async function test() {
     try {
-        console.log('1. 登录...');
-        const login = await axios.post(API + '/auth/login', {
-            username: 'xingtic',
-            password: 'Xingtic.0.'
-        });
-        const token = login.data.token;
-        console.log('登录成功');
+        console.log('1. Testing debug endpoint...');
+        const videoId = '6934fd54062f88eaecbced3b';
         
-        console.log('\n2. 获取视频列表...');
-        const list = await axios.get(API + '/videos?limit=1');
-        const videoId = list.data.videos[0]._id;
-        console.log('视频ID:', videoId);
-        
-        console.log('\n3. 测试流式端点 (新部署)...');
-        const streamUrl = API + '/videos/' + videoId + '/stream?token=' + token;
-        console.log('URL:', streamUrl);
-        
-        const stream = await axios.get(streamUrl, {
-            responseType: 'arraybuffer',
-            headers: { Range: 'bytes=0-1000' },
-            timeout: 60000,
+        const debug = await axios.get(API + '/videos/' + videoId + '/debug', {
+            timeout: 30000,
             validateStatus: () => true
         });
         
-        console.log('响应状态:', stream.status);
-        console.log('Content-Type:', stream.headers['content-type']);
-        console.log('Content-Length:', stream.headers['content-length']);
+        console.log('Debug Status:', debug.status);
+        console.log('Debug Result:', JSON.stringify(debug.data, null, 2));
         
-        if (stream.status === 200 || stream.status === 206) {
-            const data = Buffer.from(stream.data);
-            console.log('数据长度:', data.length);
-            const header = data.slice(0, 20).toString('hex');
-            console.log('文件头(hex):', header);
+        if (debug.data.newVideoUrl) {
+            console.log('\n=== SUCCESS: Got new video URL! ===');
+            console.log('New URL:', debug.data.newVideoUrl.substring(0, 80) + '...');
             
-            // MP4 文件通常以 00 00 00 xx 66 74 79 70 (ftyp) 开头
-            if (header.includes('66747970') || header.includes('6674')) {
-                console.log('\n✅ 成功！检测到有效的 MP4 文件数据！');
+            // Test the stream endpoint
+            console.log('\n2. Testing stream endpoint...');
+            const login = await axios.post(API + '/auth/login', {
+                username: 'xingtic',
+                password: 'Xingtic.0.'
+            });
+            const token = login.data.token;
+            
+            const stream = await axios.get(API + '/videos/' + videoId + '/stream?token=' + token, {
+                responseType: 'arraybuffer',
+                headers: { Range: 'bytes=0-1000' },
+                timeout: 60000,
+                validateStatus: () => true
+            });
+            
+            console.log('Stream Status:', stream.status);
+            console.log('Content-Type:', stream.headers['content-type']);
+            
+            if (stream.status === 200 || stream.status === 206) {
+                const data = Buffer.from(stream.data);
+                console.log('Data length:', data.length);
+                console.log('\n=== VIDEO STREAMING WORKS! ===');
             } else {
-                console.log('\n数据预览:', data.slice(0, 50).toString());
+                console.log('Stream Error:', Buffer.from(stream.data).toString());
             }
         } else {
-            console.log('\n❌ 请求失败');
-            const body = Buffer.from(stream.data).toString();
-            console.log('响应内容:', body);
+            console.log('\n=== FAILED: Could not get new video URL ===');
+            console.log('Error:', debug.data.error || 'No error message');
         }
         
     } catch (e) {
-        console.error('错误:', e.message);
+        console.error('Error:', e.message);
     }
 }
 

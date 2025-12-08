@@ -263,18 +263,62 @@ router.get('/:id/debug', async (req, res) => {
       sourceUrl: video.sourceUrl,
       storedVideoUrl: video.videoUrl,
       newVideoUrl: null,
+      pageStatus: null,
+      pageLength: null,
+      hasVideoTag: null,
       error: null
     };
 
     if (video.sourceUrl) {
       try {
-        console.log('[Debug] Fetching URL from:', video.sourceUrl);
-        const newUrl = await getH823VideoUrl(video.sourceUrl);
-        result.newVideoUrl = newUrl;
-        console.log('[Debug] Got URL:', newUrl ? newUrl.substring(0, 80) + '...' : 'null');
+        console.log('[Debug] Fetching page:', video.sourceUrl);
+        
+        // 直接获取页面来调试
+        const cheerio = require('cheerio');
+        const pageRes = await axios.get(video.sourceUrl, {
+          headers: { 
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+          },
+          timeout: 15000
+        });
+        
+        result.pageStatus = pageRes.status;
+        result.pageLength = pageRes.data.length;
+        
+        const $ = cheerio.load(pageRes.data);
+        const videoTag = $('video');
+        result.hasVideoTag = videoTag.length > 0;
+        
+        const html = $('video').parent().html() || '';
+        result.videoParentLength = html.length;
+        
+        const match = html.match(/strencode2\("([^"]+)"\)/);
+        result.hasStrencode2 = !!match;
+        
+        if (match) {
+          const decoded = decodeURIComponent(match[1]);
+          const srcMatch = decoded.match(/src='([^']+)'/);
+          if (srcMatch) {
+            result.newVideoUrl = srcMatch[1];
+          }
+        }
+        
+        if (!result.newVideoUrl) {
+          result.newVideoUrl = $('source').attr('src') || $('video').attr('src');
+        }
+        
+        // 如果还是没有找到，保存一些页面内容用于调试
+        if (!result.newVideoUrl) {
+          result.pagePreview = pageRes.data.substring(0, 500);
+        }
+        
       } catch (e) {
         result.error = e.message;
-        console.error('[Debug] Error:', e.message);
+        if (e.response) {
+          result.errorStatus = e.response.status;
+        }
       }
     }
 
