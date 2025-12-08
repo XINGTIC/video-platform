@@ -20,6 +20,7 @@
     <h2>1. API 测试</h2>
     <button id="btnTestAPI">测试 API</button>
     <button id="btnTestProxy">测试代理</button>
+    <button id="btnTestDirect">测试直接访问</button>
     <pre id="apiResult">点击按钮开始测试</pre>
     
     <h2>2. 视频播放器</h2>
@@ -130,20 +131,55 @@
             
             try {
                 const res = await fetch(proxyUrl);
-                log('代理状态: ' + res.status);
+                log('代理状态码: ' + res.status);
                 log('Content-Type: ' + res.headers.get('content-type'));
+                log('Content-Length: ' + res.headers.get('content-length'));
                 
-                const text = await res.text();
-                log('响应长度: ' + text.length + ' 字符');
-                log('响应内容 (前200字符): ' + text.substring(0, 200));
+                if (res.status !== 200 && res.status !== 206) {
+                    const text = await res.text();
+                    log('错误响应: ' + text, true);
+                    return;
+                }
                 
-                if (text.includes('#EXTM3U')) {
-                    log('检测到有效的 M3U8 播放列表!', false);
-                } else if (text.includes('error') || text.includes('Error')) {
-                    log('代理返回错误!', true);
+                // 读取前100字节
+                const reader = res.body.getReader();
+                const { value } = await reader.read();
+                reader.cancel();
+                
+                if (value) {
+                    log('收到数据: ' + value.length + ' 字节');
+                    // 检查是否是视频数据
+                    const header = Array.from(value.slice(0, 8)).map(b => b.toString(16).padStart(2, '0')).join(' ');
+                    log('文件头 (hex): ' + header);
+                    
+                    // MP4 通常以 00 00 00 xx 66 74 79 70 (ftyp) 开头
+                    const asText = new TextDecoder().decode(value.slice(0, 20));
+                    if (asText.includes('ftyp')) {
+                        log('检测到有效的 MP4 文件!');
+                    } else if (asText.includes('#EXTM3U')) {
+                        log('检测到 M3U8 播放列表');
+                    } else {
+                        log('响应内容: ' + asText.substring(0, 50));
+                    }
                 }
             } catch (e) {
                 log('代理错误: ' + e.message, true);
+            }
+        }
+        
+        // 测试直接访问原始URL（会有CORS错误，但可以看到请求是否发出）
+        async function testDirect() {
+            if (!videoData || !videoData.videoUrl) {
+                log('请先运行 API 测试', true);
+                return;
+            }
+            log('=== 测试直接访问 ===');
+            log('原始 URL: ' + videoData.videoUrl);
+            try {
+                const res = await fetch(videoData.videoUrl, { mode: 'no-cors' });
+                log('直接访问: 请求已发送 (no-cors模式无法读取响应)');
+            } catch (e) {
+                log('直接访问错误: ' + e.message, true);
             }
         }
         
@@ -228,6 +264,7 @@
         // Bind events
         document.getElementById('btnTestAPI').onclick = testAPI;
         document.getElementById('btnTestProxy').onclick = testProxy;
+        document.getElementById('btnTestDirect').onclick = testDirect;
         document.getElementById('btnLoadVideo').onclick = loadVideo;
         
         // Auto init
