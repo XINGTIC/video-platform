@@ -33,6 +33,7 @@
 
     <script>
         const API_URL = 'https://video-platform-3v33.onrender.com/api';
+        const CF_PROXY = '/api/video-proxy';
         let videoData = null;
         
         function log(msg, isError) {
@@ -183,7 +184,7 @@
             }
         }
         
-        function loadVideo() {
+        async function loadVideo() {
             if (!videoData || !videoData._id) {
                 log('请先运行 API 测试', true);
                 alert('请先点击"测试 API"按钮');
@@ -192,20 +193,42 @@
             
             log('=== 加载视频 ===');
             const video = document.getElementById('video');
-            const token = localStorage.getItem('token');
             
-            // 使用新的实时流式代理端点
-            const streamUrl = API_URL + '/videos/' + videoData._id + '/stream?token=' + token;
+            let currentVideoUrl = videoData.videoUrl;
             
-            log('视频 ID: ' + videoData._id);
-            log('流式代理 URL: ' + streamUrl.substring(0, 80) + '...');
+            // 如果是 H823，先通过 CF 代理获取新 URL
+            if (videoData.sourceUrl && (videoData.provider === 'H823' || (videoData.tags && videoData.tags.includes('H823')))) {
+                log('通过 Cloudflare 代理获取新 URL...');
+                try {
+                    const cfRes = await fetch(CF_PROXY + '?action=geturl&url=' + encodeURIComponent(videoData.sourceUrl));
+                    const cfData = await cfRes.json();
+                    log('CF 代理响应: ' + JSON.stringify(cfData));
+                    if (cfData.success && cfData.videoUrl) {
+                        currentVideoUrl = cfData.videoUrl;
+                        log('获取到新 URL: ' + currentVideoUrl.substring(0, 60) + '...');
+                    }
+                } catch (e) {
+                    log('CF 代理获取 URL 失败: ' + e.message, true);
+                }
+            }
             
-            const originalUrl = videoData.videoUrl || '';
-            const isHLS = originalUrl.toLowerCase().includes('.m3u8');
-            log('原始格式: ' + (isHLS ? 'HLS' : 'MP4'));
+            if (!currentVideoUrl) {
+                log('无法获取视频 URL', true);
+                setStatus('视频 URL 不可用', true);
+                return;
+            }
+            
+            // 使用 CF 代理播放视频
+            const referer = videoData.sourceUrl || 'https://h823.sol148.com/';
+            const proxyUrl = CF_PROXY + '?url=' + encodeURIComponent(currentVideoUrl) + '&referer=' + encodeURIComponent(referer);
+            
+            log('视频 URL: ' + currentVideoUrl.substring(0, 60) + '...');
+            log('代理 URL: ' + proxyUrl.substring(0, 60) + '...');
+            
+            const isHLS = currentVideoUrl.toLowerCase().includes('.m3u8');
+            log('格式: ' + (isHLS ? 'HLS' : 'MP4'));
             
             if (isHLS && Hls.isSupported()) {
-                // HLS 格式
                 log('使用 HLS.js 播放');
                 const hls = new Hls({ debug: false, enableWorker: true });
                 
@@ -220,27 +243,22 @@
                     if (data.fatal) setStatus('视频加载失败', true);
                 });
                 
-                hls.loadSource(streamUrl);
+                hls.loadSource(proxyUrl);
                 hls.attachMedia(video);
             } else {
-                // MP4 格式 - 使用流式代理
-                log('使用流式代理播放 (MP4)');
-                video.src = streamUrl;
+                log('使用 CF 代理播放 MP4');
+                video.src = proxyUrl;
                 
                 video.onloadeddata = function() {
                     log('视频数据已加载!');
                     setStatus('视频加载成功!', false);
                 };
                 
-                video.oncanplay = function() {
-                    log('视频可以播放了!');
-                };
-                
                 video.onerror = function(e) {
                     const errCode = video.error ? video.error.code : 'unknown';
                     const errMsg = video.error ? video.error.message : '未知错误';
                     log('视频加载错误: code=' + errCode + ', msg=' + errMsg, true);
-                    setStatus('视频加载失败: ' + errMsg, true);
+                    setStatus('视频加载失败', true);
                 };
                 
                 video.play().catch(function(e) { 

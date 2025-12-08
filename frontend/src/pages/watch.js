@@ -15,14 +15,16 @@ export default function Watch() {
   const videoRef = useRef(null);
   const hlsRef = useRef(null);
 
+  // Cloudflare Pages Function 代理 URL
+  const CF_PROXY = '/api/video-proxy';
+  
   // 辅助函数 - 获取视频源URL
   const getVideoSrc = (v) => {
-    if (!v || !v._id) return '';
+    if (!v || !v.videoUrl) return '';
     
-    // 使用新的实时流式代理端点
-    // 这个端点会实时获取最新的视频URL并流式转发
-    const token = localStorage.getItem('token');
-    return `${API_URL}/videos/${v._id}/stream?token=${token}`;
+    // 使用 Cloudflare Pages Function 代理（绑过源网站的 IP 封禁）
+    const referer = v.sourceUrl || 'https://h823.sol148.com/';
+    return `${CF_PROXY}?url=${encodeURIComponent(v.videoUrl)}&referer=${encodeURIComponent(referer)}`;
   };
   
   // 检测是否为 HLS 格式（基于实际 URL，不是 provider）
@@ -50,12 +52,30 @@ export default function Watch() {
     axios.get(`${API_URL}/videos/${id}`, {
       headers: { Authorization: `Bearer ${token}` }
     })
-    .then(res => setVideo(res.data))
+    .then(async (res) => {
+      let videoData = res.data;
+      
+      // 如果是 H823 视频，通过 Cloudflare 代理获取最新的视频 URL
+      if (videoData.sourceUrl && (videoData.provider === 'H823' || videoData.tags?.includes('H823'))) {
+        try {
+          console.log('[Video] 通过 CF 代理获取新 URL...');
+          const cfRes = await axios.get(`/api/video-proxy?action=geturl&url=${encodeURIComponent(videoData.sourceUrl)}`);
+          if (cfRes.data.success && cfRes.data.videoUrl) {
+            console.log('[Video] 获取到新 URL:', cfRes.data.videoUrl.substring(0, 60) + '...');
+            videoData = { ...videoData, videoUrl: cfRes.data.videoUrl };
+          }
+        } catch (e) {
+          console.warn('[Video] CF 代理获取 URL 失败:', e.message);
+        }
+      }
+      
+      setVideo(videoData);
+    })
     .catch(err => {
       if (err.response?.status === 403) {
         setError('今日观看限额已用完，请升级会员。');
       } else if (err.response?.status === 401) {
-        localStorage.removeItem('token'); // Clear invalid token
+        localStorage.removeItem('token');
         router.push('/login');
       } else if (err.response?.status === 404) {
         setError('视频不存在或已被删除');
