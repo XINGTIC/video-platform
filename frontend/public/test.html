@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Video Test</title>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+</head>
+<body>
+    <h1>Video Debug Test</h1>
+    
+    <div id="status">Loading...</div>
+    
+    <h2>1. API Test</h2>
+    <button onclick="testAPI()">Test API</button>
+    <pre id="apiResult"></pre>
+    
+    <h2>2. Video Player</h2>
+    <video id="video" width="640" height="360" controls style="background:#000;"></video>
+    <br>
+    <button onclick="loadVideo()">Load Video</button>
+    
+    <h2>3. Logs</h2>
+    <pre id="logs" style="background:#f0f0f0;padding:10px;max-height:400px;overflow:auto;"></pre>
+
+    <script>
+        const API_URL = 'https://video-platform-3v33.onrender.com/api';
+        let videoData = null;
+        
+        function log(msg) {
+            const logs = document.getElementById('logs');
+            logs.textContent += new Date().toISOString().substr(11,8) + ' ' + msg + '\n';
+            logs.scrollTop = logs.scrollHeight;
+            console.log(msg);
+        }
+        
+        async function testAPI() {
+            log('Testing API...');
+            try {
+                // Get video list
+                const listRes = await fetch(API_URL + '/videos?limit=1');
+                const listData = await listRes.json();
+                log('Video list: ' + JSON.stringify(listData, null, 2));
+                
+                if (listData.videos && listData.videos.length > 0) {
+                    const videoId = listData.videos[0]._id;
+                    log('Found video ID: ' + videoId);
+                    
+                    // Get token from localStorage
+                    const token = localStorage.getItem('token');
+                    log('Token exists: ' + !!token);
+                    
+                    if (token) {
+                        // Get video details
+                        const detailRes = await fetch(API_URL + '/videos/' + videoId, {
+                            headers: { Authorization: 'Bearer ' + token }
+                        });
+                        
+                        if (detailRes.ok) {
+                            videoData = await detailRes.json();
+                            log('Video data: ' + JSON.stringify(videoData, null, 2));
+                            document.getElementById('apiResult').textContent = JSON.stringify(videoData, null, 2);
+                        } else {
+                            const errText = await detailRes.text();
+                            log('Error getting video: ' + detailRes.status + ' ' + errText);
+                        }
+                    } else {
+                        log('No token - please login first at /login');
+                    }
+                }
+            } catch (e) {
+                log('API Error: ' + e.message);
+            }
+        }
+        
+        function loadVideo() {
+            if (!videoData || !videoData.videoUrl) {
+                log('No video data - run API test first');
+                return;
+            }
+            
+            const video = document.getElementById('video');
+            const originalUrl = videoData.videoUrl;
+            const referer = videoData.sourceUrl || 'https://h823.sol148.com/';
+            const proxyUrl = API_URL + '/proxy?url=' + encodeURIComponent(originalUrl) + '&referer=' + encodeURIComponent(referer);
+            
+            log('Original URL: ' + originalUrl);
+            log('Proxy URL: ' + proxyUrl);
+            log('Provider: ' + videoData.provider);
+            
+            const isHLS = originalUrl.includes('.m3u8') || videoData.provider === 'H823';
+            log('Is HLS: ' + isHLS);
+            
+            if (isHLS && Hls.isSupported()) {
+                log('Using HLS.js');
+                const hls = new Hls({
+                    debug: true,
+                    enableWorker: true
+                });
+                
+                hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                    log('HLS: Manifest parsed successfully!');
+                    video.play().catch(e => log('Play error: ' + e.message));
+                });
+                
+                hls.on(Hls.Events.ERROR, (event, data) => {
+                    log('HLS Error: ' + data.type + ' - ' + data.details);
+                    if (data.response) {
+                        log('Response status: ' + data.response.code);
+                    }
+                    if (data.fatal) {
+                        log('FATAL ERROR!');
+                    }
+                });
+                
+                hls.loadSource(proxyUrl);
+                hls.attachMedia(video);
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                log('Using native HLS (Safari)');
+                video.src = proxyUrl;
+            } else {
+                log('Using direct video src');
+                video.src = proxyUrl;
+            }
+        }
+        
+        // Test proxy directly
+        async function testProxy() {
+            if (!videoData || !videoData.videoUrl) {
+                log('No video data');
+                return;
+            }
+            
+            const proxyUrl = API_URL + '/proxy?url=' + encodeURIComponent(videoData.videoUrl) + '&referer=' + encodeURIComponent('https://h823.sol148.com/');
+            log('Testing proxy: ' + proxyUrl);
+            
+            try {
+                const res = await fetch(proxyUrl);
+                log('Proxy status: ' + res.status);
+                log('Content-Type: ' + res.headers.get('content-type'));
+                const text = await res.text();
+                log('Response (first 500 chars): ' + text.substring(0, 500));
+            } catch (e) {
+                log('Proxy error: ' + e.message);
+            }
+        }
+        
+        document.getElementById('status').textContent = 'Ready. Click "Test API" first.';
+    </script>
+</body>
+</html>
+
